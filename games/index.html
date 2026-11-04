@@ -26,9 +26,17 @@ const sun=new THREE.DirectionalLight(0xffe0b5,2.3);sun.position.set(-8,18,10);su
 const mat=(c,r=.9)=>new THREE.MeshStandardMaterial({color:c,roughness:r});
 const grass=mat(0x477b42),soil=mat(0x59402e),wood=mat(0x80502f),roof=mat(0xb95735),leaf=mat(0x205b39),leaf2=mat(0x34744a),stone=mat(0x68747a),pathmat=mat(0xc0a47b),gold=mat(0x45d9ff,.25);
 const island=new THREE.Group();scene.add(island);
-const ground=new THREE.Mesh(new THREE.CylinderGeometry(10.3,8.2,2.6,9,1),soil);ground.position.y=-.2;ground.scale.z=.92;ground.castShadow=true;ground.receiveShadow=true;island.add(ground);
-const top=new THREE.Mesh(new THREE.CylinderGeometry(10.15,10.15,.28,9),grass);top.position.y=1.12;top.receiveShadow=true;island.add(top);
-const meadow=new THREE.Mesh(new THREE.CircleGeometry(9.8,9),grass);meadow.rotation.x=-Math.PI/2;meadow.position.y=1.27;island.add(meadow);
+// Day 01 terrain: a softened 20x20 noise-like height field, matching the Blender generator.
+function terrainHeight(x,z){const edge=Math.max(Math.abs(x),Math.abs(z))/10;const fade=Math.max(0,1-Math.pow(edge,5));const n1=.5+.22*Math.sin(x*.72+Math.sin(z*.43))*Math.cos(z*.61-x*.18);const n2=.45*Math.sin(x*1.35+z*.72)*Math.cos(z*1.12-x*.4);return 1+fade*(.65*n1+.32*n2)}
+const terrainGeo=new THREE.BufferGeometry(),terrainVerts=[],terrainFaces=[],terrainColors=[];
+const N=65;for(let j=0;j<N;j++){const z=-10+20*j/(N-1);for(let i=0;i<N;i++){const x=-10+20*i/(N-1),y=terrainHeight(x,z);terrainVerts.push(x,y,z);const edge=Math.max(Math.abs(x),Math.abs(z))/10;const tint=.88+.12*Math.sin(x*1.7+z*.9);terrainColors.push(.12*tint,.28*tint,.16*tint);}}
+for(let j=0;j<N-1;j++)for(let i=0;i<N-1;i++){const a=j*N+i;terrainFaces.push(a,a+N,a+1,a+1,a+N,a+N+1)}
+terrainGeo.setAttribute('position',new THREE.Float32BufferAttribute(terrainVerts,3));terrainGeo.setAttribute('color',new THREE.Float32BufferAttribute(terrainColors,3));terrainGeo.setIndex(terrainFaces);terrainGeo.computeVertexNormals();
+const terrainMat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.95,side:THREE.DoubleSide});
+const meadow=new THREE.Mesh(terrainGeo,terrainMat);meadow.receiveShadow=true;meadow.castShadow=true;island.add(meadow);
+const ground=new THREE.Mesh(new THREE.SphereGeometry(1,32,20),soil);ground.position.set(0,-1.05,0);ground.scale.set(9.1,2.3,8.8);ground.castShadow=true;ground.receiveShadow=true;island.add(ground);
+// Thin eroded earth rim under the height field.
+const rim=new THREE.Mesh(new THREE.CylinderGeometry(9.6,8.1,1.25,48,1),soil);rim.position.y=.05;rim.scale.z=.9;rim.castShadow=true;island.add(rim);
 function box(x,y,z,sx,sy,sz,m){const o=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;island.add(o);return o}
 function tree(x,z,s=1){const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.12*s,.17*s,1.1*s,7),wood);trunk.position.set(x,1.8*s,z);trunk.castShadow=true;island.add(trunk);for(let i=0;i<3;i++){const crown=new THREE.Mesh(new THREE.ConeGeometry((.78-i*.15)*s,.95*s,8),i===1?leaf2:leaf);crown.position.set(x,2.35*s+i*.48*s,z);crown.castShadow=true;island.add(crown)}}
 [[-6,-4,1.1],[-7,1,.9],[-4,5,1],[5,5,1.1],[7,1,.85],[6,-5,1],[-2,-7,.8]].forEach(a=>tree(...a));
@@ -41,7 +49,7 @@ const player=new THREE.Group();scene.add(player);
 const body=new THREE.Mesh(new THREE.CapsuleGeometry(.38,.75,4,8),mat(0xe5a34e));body.position.y=.8;body.castShadow=true;player.add(body);
 const head=new THREE.Mesh(new THREE.SphereGeometry(.28,12,10),mat(0xf0c99d));head.position.y=1.48;player.add(head);
 const pack=new THREE.Mesh(new THREE.BoxGeometry(.42,.48,.2),mat(0x395b72));pack.position.set(0,.85,.36);player.add(pack);
-player.position.set(-4,1.5,-5);
+player.position.set(-4,terrainHeight(-4,-5)+.08,-5);
 const gems=[];for(let i=0;i<8;i++){let a=i*Math.PI*2/8+.2,x=Math.cos(a)*(5.8+(i%2)),z=Math.sin(a)*(5.8+(i%2));let g=new THREE.Mesh(new THREE.OctahedronGeometry(.38),gold);g.position.set(x,2,z);g.userData.baseY=2;island.add(g);gems.push(g)}
 const keys={};let mode='explore',collected=0,hp=100,food=100,woodCount=0,score=0,vy=0,buildings=[];
 addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='Space')e.preventDefault()});addEventListener('keyup',e=>keys[e.code]=false);
@@ -62,7 +70,7 @@ function attack(){if(attackCooldown>0)return;attackCooldown=.35;let e=enemies.fi
 function build(){if(woodCount<3){say('木材が足りない！ 木を集めよう');return}woodCount-=3;let b=new THREE.Group();let x=player.position.x,z=player.position.z;let base=new THREE.Mesh(new THREE.BoxGeometry(1.8,1.6,1.8),wood);base.position.y=.8;b.add(base);let r=new THREE.Mesh(new THREE.ConeGeometry(1.45,1,4),roof);r.position.y=2;b.add(r);b.position.set(x,1.4,z);island.add(b);buildings.push(b);say('小さな小屋を建てた！')}
 function updateStatus(){if(mode==='explore')status.textContent='宝石 '+collected+' / 8';if(mode==='survival')status.textContent='体力 '+Math.round(hp)+'　食料 '+Math.round(food)+'　木材 '+woodCount;if(mode==='rpg')status.textContent='HP '+Math.round(hp)+'　XP '+score;if(mode==='build')status.textContent='木材 '+woodCount+'　建築数 '+buildings.length}
 let last=performance.now();function animate(now){requestAnimationFrame(animate);let dt=Math.min((now-last)/1000,.04);last=now;const speed=5*dt;let dx=0,dz=0;if(keys.KeyW||keys.ArrowUp)dz-=1;if(keys.KeyS||keys.ArrowDown)dz+=1;if(keys.KeyA||keys.ArrowLeft)dx-=1;if(keys.KeyD||keys.ArrowRight)dx+=1;let len=Math.hypot(dx,dz)||1;player.position.x+=dx/len*speed;player.position.z+=dz/len*speed;player.position.x=Math.max(-9,Math.min(9,player.position.x));player.position.z=Math.max(-9,Math.min(9,player.position.z));if(dx||dz)player.rotation.y=Math.atan2(dx,dz);
-if(keys.Space&&player.position.y<=1.51)vy=7;vy-=18*dt;player.position.y+=vy*dt;if(player.position.y<1.5){player.position.y=1.5;vy=0}
+const floorY=terrainHeight(player.position.x,player.position.z)+.08;if(keys.Space&&player.position.y<=floorY+.02)vy=7;vy-=18*dt;player.position.y+=vy*dt;if(player.position.y<floorY){player.position.y=floorY;vy=0}
 if(mode==='explore'){gems.forEach(g=>{if(g.visible&&g.position.distanceTo(player.position)<1.15){g.visible=false;collected++;say('宝石を見つけた！');}});if(collected===8&&gems.some(g=>g.visible)){}if(collected===8&& !animate.done){animate.done=true;say('全ての宝石を集めた！ 島の探索完了！')}}
 if(mode==='survival'){food=Math.max(0,food-dt*.8);if(food===0)hp=Math.max(0,hp-dt*3);if(keys.KeyE){let t=trunks.find(t=>t.position.distanceTo(player.position)<2.5);if(t&&(!t.userData.last||now-t.userData.last>700)){t.userData.last=now;woodCount++;say('木材 +1')}}if(hp<=0)say('体力が尽きた！')}
 if(mode==='rpg'){enemies.forEach((e,i)=>{e.visible=e.userData.hp>0;if(e.visible){e.position.y=1.7+Math.sin(now*.004+i)*.12;let d=e.position.distanceTo(player.position);if(d<1.3&&Math.random()<dt*.35)hp=Math.max(0,hp-2)}});if(keys.KeyF)attack();attackCooldown=Math.max(0,attackCooldown-dt)}
