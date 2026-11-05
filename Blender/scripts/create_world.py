@@ -3,7 +3,8 @@ import math
 import random
 from mathutils import Vector, noise
 
-# Infinite 3D World — Day 02
+# Infinite 3D World — Day 03
+# Blender 4.x | Floating island, creek, waterfall and cedar footbridge
 # Blender 4.x | Floating island with a creek and waterfall
 
 random.seed(14)
@@ -226,6 +227,67 @@ for idx in range(8):
     droplet = bpy.context.object
     droplet.name = "Water • splash droplet"
     droplet.data.materials.append(foam_mat)
+
+# Small cedar footbridge across the creek — Day 03
+# The bridge crosses the existing stream near its bend, using the same terrain sampler.
+bridge_cx, bridge_cy = 6.35, 0.85
+bridge_angle = math.radians(40.0)
+bridge_ux, bridge_uy = math.cos(bridge_angle), math.sin(bridge_angle)
+bridge_vx, bridge_vy = -bridge_uy, bridge_ux
+bridge_deck_z = terrain_height(bridge_cx, bridge_cy) + 0.62
+
+def bridge_position(along, across, z):
+    return (
+        bridge_cx + bridge_ux * along + bridge_vx * across,
+        bridge_cy + bridge_uy * along + bridge_vy * across,
+        z
+    )
+
+# Two cedar stringers carry the deck above the water.
+for side in (-0.48, 0.48):
+    beam = cube_obj(
+        "Bridge • cedar stringer",
+        bridge_position(0.0, side, bridge_deck_z - 0.10),
+        (3.55, 0.18, 0.20), wood, 0.035
+    )
+    beam.rotation_euler.z = bridge_angle
+
+# Closely spaced cross-planks form a readable wooden walking surface.
+for idx in range(11):
+    along = -1.55 + idx * 0.31
+    plank = cube_obj(
+        "Bridge • weathered deck plank",
+        bridge_position(along, 0.0, bridge_deck_z + 0.035),
+        (1.16, 0.31, 0.07), wood, 0.018
+    )
+    plank.rotation_euler.z = bridge_angle + math.pi / 2
+
+# Four short stone-side supports visually anchor the bridge to both banks.
+for along in (-1.52, 1.52):
+    for across in (-0.48, 0.48):
+        px, py, _ = bridge_position(along, across, 0.0)
+        bank_z = terrain_height(px, py)
+        support_h = max(0.18, bridge_deck_z - 0.20 - bank_z)
+        cube_obj(
+            "Bridge • timber bank support",
+            (px, py, bank_z + support_h * 0.5),
+            (0.17, 0.17, support_h), wood, 0.025
+        )
+
+# Low handrails and evenly spaced posts make the crossing feel safe and crafted.
+for side in (-0.66, 0.66):
+    for along in (-1.62, 0.0, 1.62):
+        cube_obj(
+            "Bridge • handrail post",
+            bridge_position(along, side, bridge_deck_z + 0.47),
+            (0.14, 0.14, 0.86), wood, 0.025
+        )
+    rail = cube_obj(
+        "Bridge • cedar handrail",
+        bridge_position(0.0, side, bridge_deck_z + 0.89),
+        (3.52, 0.13, 0.13), wood, 0.035
+    )
+    rail.rotation_euler.z = bridge_angle
 
 # Lighting, world, camera
 world = bpy.data.worlds.new("Soft blue morning") if not bpy.data.worlds else bpy.data.worlds[0]
