@@ -25,6 +25,8 @@ scene.add(new THREE.HemisphereLight(0xd9f1ff,0x43513a,2));
 const sun=new THREE.DirectionalLight(0xffe0b5,2.3);sun.position.set(-8,18,10);sun.castShadow=true;scene.add(sun);
 const mat=(c,r=.9)=>new THREE.MeshStandardMaterial({color:c,roughness:r});
 const grass=mat(0x477b42),soil=mat(0x59402e),wood=mat(0x80502f),roof=mat(0xb95735),leaf=mat(0x205b39),leaf2=mat(0x34744a),stone=mat(0x68747a),pathmat=mat(0xc0a47b),gold=mat(0x45d9ff,.25);
+const waterMat=new THREE.MeshStandardMaterial({color:0x087f99,roughness:.22,metalness:.12,emissive:0x03232c,emissiveIntensity:.35});
+const foamMat=new THREE.MeshStandardMaterial({color:0x9be5e8,roughness:.28,emissive:0x1b5960,emissiveIntensity:.35});
 const island=new THREE.Group();scene.add(island);
 // Day 01 terrain: a softened 20x20 noise-like height field, matching the Blender generator.
 function terrainHeight(x,z){const edge=Math.max(Math.abs(x),Math.abs(z))/10;const fade=Math.max(0,1-Math.pow(edge,5));const n1=.5+.22*Math.sin(x*.72+Math.sin(z*.43))*Math.cos(z*.61-x*.18);const n2=.45*Math.sin(x*1.35+z*.72)*Math.cos(z*1.12-x*.4);return 1+fade*(.65*n1+.32*n2)}
@@ -45,6 +47,28 @@ const roof1=new THREE.Mesh(new THREE.ConeGeometry(2.35,1.55,4),roof);roof1.rotat
 box(1,1.75,-.09,.65,1.2,.12,soil);box(0,2.25,-.11,.48,.5,.08,mat(0x78c9dc,.25));box(2,2.25,-.11,.48,.5,.08,mat(0x78c9dc,.25));
 for(let i=0;i<18;i++){let t=i/17,x=-5+t*5.2,z=-5+t*4+Math.sin(t*Math.PI*2)*.35;const p=new THREE.Mesh(new THREE.CylinderGeometry(.23,.23,.09,7),pathmat);p.position.set(x,1.43,z);p.rotation.y=i*.3;island.add(p)}
 [[-8,-1,.7],[8,3,.8],[-3,7,.55],[4,-7,.65]].forEach(([x,z,s])=>{let r=new THREE.Mesh(new THREE.IcosahedronGeometry(s,0),stone);r.position.set(x,1.4,z);r.castShadow=true;island.add(r)});
+// Day 02: creek, waterfall, plunge pool and splash droplets.
+// The Blender scene uses (x, z, height); the game maps height to Three.js Y.
+const creekXY=[[3.5,3.8],[4.7,2.8],[5.8,1.5],[6.9,.2],[7.8,-.9],[8.7,-1.8],[9.45,-2.4]];
+const creekCurve=new THREE.CatmullRomCurve3(creekXY.map(([x,z])=>new THREE.Vector3(x,terrainHeight(x,z)+.18,z)));
+const creek=new THREE.Mesh(new THREE.TubeGeometry(creekCurve,72,.20,8,false),waterMat);creek.castShadow=true;island.add(creek);
+const rippleCurve=new THREE.CatmullRomCurve3(creekXY.slice(1,-1).map(([x,z])=>new THREE.Vector3(x,terrainHeight(x,z)+.31,z-.07)));
+const ripple=new THREE.Mesh(new THREE.TubeGeometry(rippleCurve,48,.028,6,false),foamMat);island.add(ripple);
+const fallCenters=[
+ [9.25,-2.47,terrainHeight(9.25,-2.47)+.12],
+ [9.55,-2.52,.34],[9.78,-2.56,-.42],[9.76,-2.60,-1.30],
+ [9.48,-2.63,-2.20],[9.14,-2.66,-3.02]
+];
+const fallWidths=[.62,.70,.58,.68,.56,.46],fallVerts=[],fallIndices=[];
+fallCenters.forEach(([x,z,h],i)=>{const w=fallWidths[i];fallVerts.push(x-w*.5,h,z,x+w*.5,h,z+.045);});
+for(let i=0;i<fallCenters.length-1;i++){const a=i*2;fallIndices.push(a,a+1,a+3,a,a+3,a+2);}
+const fallGeo=new THREE.BufferGeometry();fallGeo.setAttribute('position',new THREE.Float32BufferAttribute(fallVerts,3));fallGeo.setIndex(fallIndices);fallGeo.computeVertexNormals();
+const fallMat=waterMat.clone();fallMat.side=THREE.DoubleSide;
+const waterfall=new THREE.Mesh(fallGeo,fallMat);waterfall.castShadow=true;island.add(waterfall);
+const pool=new THREE.Mesh(new THREE.SphereGeometry(1,24,12),waterMat);pool.position.set(8.75,-3.12,-2.72);pool.scale.set(1.25,.19,.92);island.add(pool);
+const splashDrops=[];
+[[8.35,-2.86,-2.95],[8.62,-2.98,-2.62],[8.91,-2.84,-2.91],[9.18,-3.02,-2.72],[8.72,-2.78,-3.22],[9.28,-2.88,-2.48],[8.48,-2.92,-2.50],[8.98,-2.76,-3.12]].forEach((p,i)=>{const d=new THREE.Mesh(new THREE.IcosahedronGeometry(.055+(i%3)*.012,0),foamMat);d.position.set(...p);d.userData.baseY=p[1];d.userData.phase=i*.8;island.add(d);splashDrops.push(d);});
+
 const player=new THREE.Group();scene.add(player);
 const body=new THREE.Mesh(new THREE.CapsuleGeometry(.38,.75,4,8),mat(0xe5a34e));body.position.y=.8;body.castShadow=true;player.add(body);
 const head=new THREE.Mesh(new THREE.SphereGeometry(.28,12,10),mat(0xf0c99d));head.position.y=1.48;player.add(head);
@@ -75,6 +99,7 @@ if(mode==='explore'){gems.forEach(g=>{if(g.visible&&g.position.distanceTo(player
 if(mode==='survival'){food=Math.max(0,food-dt*.8);if(food===0)hp=Math.max(0,hp-dt*3);if(keys.KeyE){let t=trunks.find(t=>t.position.distanceTo(player.position)<2.5);if(t&&(!t.userData.last||now-t.userData.last>700)){t.userData.last=now;woodCount++;say('木材 +1')}}if(hp<=0)say('体力が尽きた！')}
 if(mode==='rpg'){enemies.forEach((e,i)=>{e.visible=e.userData.hp>0;if(e.visible){e.position.y=1.7+Math.sin(now*.004+i)*.12;let d=e.position.distanceTo(player.position);if(d<1.3&&Math.random()<dt*.35)hp=Math.max(0,hp-2)}});if(keys.KeyF)attack();attackCooldown=Math.max(0,attackCooldown-dt)}
 gems.forEach((g,i)=>{if(g.visible){g.rotation.y+=dt*1.4;g.position.y=2+Math.sin(now*.002+i)*.18}});
+splashDrops.forEach(d=>{d.position.y=d.userData.baseY+Math.sin(now*.004+d.userData.phase)*.07;d.rotation.x+=dt*.8;d.rotation.z+=dt*.5});
 const target=new THREE.Vector3(player.position.x+9,player.position.y+8,player.position.z+11);camera.position.lerp(target,1-Math.pow(.001,dt));camera.lookAt(player.position.x,player.position.y+.5,player.position.z);
 updateStatus();renderer.render(scene,camera)}
 requestAnimationFrame(animate);addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
