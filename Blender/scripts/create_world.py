@@ -3,8 +3,8 @@ import math
 import random
 from mathutils import Vector, noise
 
-# Infinite 3D World — Day 01
-# Blender 4.x | Procedural floating island starter scene
+# Infinite 3D World — Day 02
+# Blender 4.x | Floating island with a creek and waterfall
 
 random.seed(14)
 
@@ -33,6 +33,9 @@ glass = material("Windows • blue glass", (0.12, 0.30, 0.38), 0.3)
 leaf = material("Canopy • pine", (0.08, 0.24, 0.13))
 leaf2 = material("Canopy • sunlit", (0.20, 0.36, 0.16))
 path_mat = material("Path • pale gravel", (0.55, 0.43, 0.29))
+water_mat = material("Water • clear turquoise", (0.025, 0.22, 0.30), 0.22)
+water_mat.node_tree.nodes["Principled BSDF"].inputs["Metallic"].default_value = 0.12
+foam_mat = material("Water • pale foam", (0.34, 0.72, 0.76), 0.28)
 
 # Height-field island with a softened edge
 verts, faces = [], []
@@ -131,6 +134,99 @@ for x,y,s in [(-8,-1,0.7),(8,3,0.8),(-3,7,0.55),(4,-7,0.65)]:
     bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=1, radius=s, location=(x,y,1.0+s*0.25))
     rock = bpy.context.object; rock.name = "Meadow • boulder"; rock.data.materials.append(stone)
 
+# Creek, waterfall and a small plunge pool — Day 02
+# Sample the same procedural height field so the creek rests on the existing terrain.
+def terrain_height(x, y):
+    edge = max(abs(x), abs(y)) / (SIZE / 2)
+    fade = max(0.0, 1.0 - edge ** 5)
+    n1 = noise.multi_fractal(Vector((x * 0.22, y * 0.22, 1.7)), 1.0, 2.0, 4)
+    n2 = noise.noise_vector(Vector((x * 0.48, y * 0.48, 4.2))).z
+    return 1.0 + fade * (0.65 * n1 + 0.32 * n2)
+
+def make_water_curve(name, points, thickness, mat):
+    curve_data = bpy.data.curves.new(name + " path", "CURVE")
+    curve_data.dimensions = "3D"
+    curve_data.resolution_u = 16
+    curve_data.bevel_depth = thickness
+    curve_data.bevel_resolution = 5
+    curve_data.use_fill_caps = True
+    spline = curve_data.splines.new("POLY")
+    spline.points.add(len(points) - 1)
+    for point, co in zip(spline.points, points):
+        point.co = (co[0], co[1], co[2], 1.0)
+    obj = bpy.data.objects.new(name, curve_data)
+    bpy.context.collection.objects.link(obj)
+    obj.data.materials.append(mat)
+    return obj
+
+creek_xy = [
+    (3.5, 3.8), (4.7, 2.8), (5.8, 1.5),
+    (6.9, 0.2), (7.8, -0.9), (8.7, -1.8), (9.45, -2.4)
+]
+creek_points = [(x, y, terrain_height(x, y) + 0.10) for x, y in creek_xy]
+make_water_curve("Water • winding island creek", creek_points, 0.20, water_mat)
+make_water_curve(
+    "Water • narrow sunlit ripple",
+    [(x, y - 0.07, z + 0.12) for x, y, z in creek_points[1:-1]],
+    0.028,
+    foam_mat
+)
+
+# A gently folded vertical ribbon carries the creek over the island's front-right rim.
+fall_centers = [
+    (9.25, -2.47, terrain_height(9.25, -2.47) + 0.06),
+    (9.55, -2.52, 0.34),
+    (9.78, -2.56, -0.42),
+    (9.76, -2.60, -1.30),
+    (9.48, -2.63, -2.20),
+    (9.14, -2.66, -3.02)
+]
+fall_widths = [0.62, 0.70, 0.58, 0.68, 0.56, 0.46]
+water_verts, water_faces = [], []
+for (x, y, z), width in zip(fall_centers, fall_widths):
+    water_verts.extend([
+        (x - width * 0.5, y, z),
+        (x + width * 0.5, y + 0.045, z)
+    ])
+for i in range(len(fall_centers) - 1):
+    a = i * 2
+    water_faces.append((a, a + 1, a + 3, a + 2))
+
+fall_mesh = bpy.data.meshes.new("Waterfall flowing ribbon mesh")
+fall_mesh.from_pydata(water_verts, [], water_faces)
+fall_mesh.materials.append(water_mat)
+waterfall = bpy.data.objects.new("Water • island-edge waterfall", fall_mesh)
+bpy.context.collection.objects.link(waterfall)
+fall_solid = waterfall.modifiers.new("Thin flowing water sheet", "SOLIDIFY")
+fall_solid.thickness = 0.035
+for poly in fall_mesh.polygons:
+    poly.use_smooth = True
+
+# A soft turquoise pool and a few droplets make the landing point readable.
+bpy.ops.mesh.primitive_uv_sphere_add(segments=24, ring_count=12, location=(8.75, -2.72, -3.12))
+pool = bpy.context.object
+pool.name = "Water • plunge pool"
+pool.scale = (1.25, 0.92, 0.19)
+pool.data.materials.append(water_mat)
+for poly in pool.data.polygons:
+    poly.use_smooth = True
+
+rng = random.Random(205)
+for idx in range(8):
+    radius = rng.uniform(0.045, 0.09)
+    bpy.ops.mesh.primitive_ico_sphere_add(
+        subdivisions=1,
+        radius=radius,
+        location=(
+            8.85 + rng.uniform(-0.65, 0.65),
+            -2.85 + rng.uniform(-0.35, 0.28),
+            -2.88 + rng.uniform(-0.24, 0.22)
+        )
+    )
+    droplet = bpy.context.object
+    droplet.name = "Water • splash droplet"
+    droplet.data.materials.append(foam_mat)
+
 # Lighting, world, camera
 world = bpy.data.worlds.new("Soft blue morning") if not bpy.data.worlds else bpy.data.worlds[0]
 bpy.context.scene.world = world
@@ -156,7 +252,7 @@ scene.render.resolution_x=1400; scene.render.resolution_y=1050; scene.render.res
 scene.render.image_settings.file_format='PNG'
 scene.render.film_transparent=False
 scene.view_settings.view_transform='AgX'
-scene.render.filepath='//Screenshots/day01_floating_island.png'
+scene.render.filepath='//Screenshots/day02_creek_waterfall.png'
 
 # Helpful viewport framing
 bpy.context.view_layer.objects.active=island
@@ -165,4 +261,4 @@ for area in bpy.context.screen.areas:
     if area.type == 'VIEW_3D':
         area.spaces.active.region_3d.view_distance=30
 
-print("Infinite 3D World — Day 01 scene created. Save as world.blend and render with F12.")
+print("Infinite 3D World — Day 02 creek and waterfall added. Save as world.blend and render with F12.")
