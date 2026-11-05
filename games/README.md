@@ -15,4 +15,4 @@ Open `index.html` in a modern browser with an internet connection. Three.js is l
 
 Controls: WASD / arrow keys to move, Space to jump. On mobile, use the on-screen directional pad.
 
-The current game scene recreates the Day 01 island procedurally in Three.js, including a 65×65 softened height-field meadow and a rocky floating underside. The source repository currently contains the Blender generator script rather than an exported `.glb` asset. The browser terrain is an approximation of the Blender noise field, not a direct render/export.
+The browser scene follows the latest Day 02 world design: a winding turquoise creek, a narrow surface highlight, a waterfall over the island's front-right rim, a plunge pool, and animated splash droplets. The creek and waterfall are positioned against the game's procedural 65×65 terrain approximation. The original Blender generator uses Blender's noise functions, so the browser terrain and water heights are an approximation rather than a direct `.glb` export. The four gameplay modes remain available.
