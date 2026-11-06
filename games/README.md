@@ -17,4 +17,4 @@ The browser scene now also includes the Day 03 cedar footbridge at the creek ben
 
 Controls: WASD / arrow keys to move, Space to jump. On mobile, use the on-screen directional pad.
 
-The browser scene follows the latest Day 02 world design: a winding turquoise creek, a narrow surface highlight, a waterfall over the island's front-right rim, a plunge pool, and animated splash droplets. The creek and waterfall are positioned against the game's procedural 65×65 terrain approximation. The original Blender generator uses Blender's noise functions, so the browser terrain and water heights are an approximation rather than a direct `.glb` export. The four gameplay modes remain available.
+The browser scene follows the latest Day 03 world design: the Day 02 winding turquoise creek, waterfall, plunge pool and splash droplets are retained, and the cedar footbridge is added at the creek bend. The island uses a procedural 65×65 terrain approximation; Blender's noise functions are not exported directly, so the browser terrain and water heights are approximate rather than a direct `.glb` import. All four gameplay modes remain available.
