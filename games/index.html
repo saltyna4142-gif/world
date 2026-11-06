@@ -12,7 +12,7 @@
 <div id="ui">
  <div id="top"><div class="panel"><div id="brand">INFINITE WORLD / 01 EXPLORER</div><div id="status">宝石 0 / 8　|　島を探索しよう</div></div>
  <div class="buttons"><button id="explore" class="active">探索</button><button id="survival">サバイバル</button><button id="rpg">アクションRPG</button><button id="build">建築</button></div></div>
- <div id="toast"></div><div id="help" class="panel">WASD / 矢印キー：移動　|　Space：ジャンプ<br>青い光る宝石を集めよう。スマホは右下のボタンでも移動できます。</div>
+ <div id="toast"></div><div id="help" class="panel">WASD / 矢印キー：移動　|　Space：ジャンプ<br>青い光る宝石を集めよう。小川の杉橋はジャンプで乗り込んで渡れます。スマホは右下のボタンでも移動できます。</div>
  <div id="touch"><div style="display:grid;grid-template-columns:repeat(3,52px);gap:5px"><span></span><button data-key="ArrowUp">↑</button><span></span><button data-key="ArrowLeft">←</button><button data-key="ArrowDown">↓</button><button data-key="ArrowRight">→</button></div></div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
@@ -69,6 +69,42 @@ const pool=new THREE.Mesh(new THREE.SphereGeometry(1,24,12),waterMat);pool.posit
 const splashDrops=[];
 [[8.35,-2.86,-2.95],[8.62,-2.98,-2.62],[8.91,-2.84,-2.91],[9.18,-3.02,-2.72],[8.72,-2.78,-3.22],[9.28,-2.88,-2.48],[8.48,-2.92,-2.50],[8.98,-2.76,-3.12]].forEach((p,i)=>{const d=new THREE.Mesh(new THREE.IcosahedronGeometry(.055+(i%3)*.012,0),foamMat);d.position.set(...p);d.userData.baseY=p[1];d.userData.phase=i*.8;island.add(d);splashDrops.push(d);});
 
+// Day 03: cedar footbridge across the creek, matching Blender/scripts/create_world.py.
+const bridgeCenter={x:6.35,z:.85},bridgeAngle=Math.PI/180*40;
+const bridgeU={x:Math.cos(bridgeAngle),z:Math.sin(bridgeAngle)};
+const bridgeV={x:-Math.sin(bridgeAngle),z:Math.cos(bridgeAngle)};
+const bridgeDeckY=terrainHeight(bridgeCenter.x,bridgeCenter.z)+.62;
+function bridgePoint(along,across,y){
+ return {x:bridgeCenter.x+bridgeU.x*along+bridgeV.x*across,y,z:bridgeCenter.z+bridgeU.z*along+bridgeV.z*across};
+}
+function bridgeBox(name,sx,sy,sz,along,across,y,rotationY=0){
+ const mesh=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),wood);
+ const p=bridgePoint(along,across,y);mesh.position.set(p.x,p.y,p.z);mesh.rotation.y=rotationY;
+ mesh.name=name;mesh.castShadow=true;mesh.receiveShadow=true;island.add(mesh);return mesh;
+}
+// Twin stringers and eleven cross-planks form the cedar deck.
+for(const side of [-.48,.48])bridgeBox('Bridge • cedar stringer',3.55,.20,.18,0,side,bridgeDeckY-.10,-bridgeAngle);
+for(let i=0;i<11;i++){
+ const along=-1.55+i*.31;
+ bridgeBox('Bridge • deck plank',1.16,.07,.31,along,0,bridgeDeckY+.035,-bridgeAngle-Math.PI/2);
+}
+// Bank supports meet the approximated terrain at all four corners.
+for(const along of [-1.52,1.52])for(const across of [-.48,.48]){
+ const p=bridgePoint(along,across,0),bankY=terrainHeight(p.x,p.z);
+ const supportH=Math.max(.18,bridgeDeckY-.20-bankY);
+ bridgeBox('Bridge • bank support',.17,supportH,.17,along,across,bankY+supportH*.5,0);
+}
+// Low posts and cedar handrails complete the crossing.
+for(const side of [-.66,.66]){
+ for(const along of [-1.62,0,1.62])bridgeBox('Bridge • handrail post',.14,.86,.14,along,side,bridgeDeckY+.47,0);
+ bridgeBox('Bridge • cedar handrail',3.52,.13,.13,0,side,bridgeDeckY+.89,-bridgeAngle);
+}
+function bridgeFloorAt(x,z){
+ const dx=x-bridgeCenter.x,dz=z-bridgeCenter.z;
+ const along=dx*bridgeU.x+dz*bridgeU.z,across=dx*bridgeV.x+dz*bridgeV.z;
+ return Math.abs(along)<=1.78&&Math.abs(across)<=.59?bridgeDeckY+.07:null;
+}
+
 const player=new THREE.Group();scene.add(player);
 const body=new THREE.Mesh(new THREE.CapsuleGeometry(.38,.75,4,8),mat(0xe5a34e));body.position.y=.8;body.castShadow=true;player.add(body);
 const head=new THREE.Mesh(new THREE.SphereGeometry(.28,12,10),mat(0xf0c99d));head.position.y=1.48;player.add(head);
@@ -80,7 +116,7 @@ addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='Space')e.preventDe
 document.querySelectorAll('[data-key]').forEach(b=>{let k=b.dataset.key;b.addEventListener('pointerdown',e=>{keys[k]=true});['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>keys[k]=false))});
 const status=document.getElementById('status'),help=document.getElementById('help'),toast=document.getElementById('toast');
 function say(s){toast.textContent=s;toast.style.opacity=1;clearTimeout(say.t);say.t=setTimeout(()=>toast.style.opacity=0,1700)}
-function setMode(m){mode=m;document.querySelectorAll('.buttons button').forEach(b=>b.classList.toggle('active',b.id===m));if(m==='explore'){help.innerHTML='WASD / 矢印キー：移動　|　Space：ジャンプ<br>青い光る宝石を集めて島を探検しよう。';say('探索モード');}
+function setMode(m){mode=m;document.querySelectorAll('.buttons button').forEach(b=>b.classList.toggle('active',b.id===m));if(m==='explore'){help.innerHTML='WASD / 矢印キー：移動　|　Space：ジャンプ<br>青い宝石を集めよう。小川の杉橋はジャンプで乗り込んで渡れます。';say('探索モード');}
 if(m==='survival'){help.innerHTML='木に近づいて E：木材を集める<br>体力と食料を管理して生き残ろう。';say('サバイバル開始！');}
 if(m==='rpg'){help.innerHTML='クリック または F：近くの敵を攻撃<br>島に現れるスライムを倒そう。';say('冒険者よ、武器を構えよう！');}
 if(m==='build'){help.innerHTML='クリック：足元の近くに小屋を建築（木材3）<br>サバイバルで木材を集めてから建築しよう。';say('建築モード');}}
@@ -94,7 +130,7 @@ function attack(){if(attackCooldown>0)return;attackCooldown=.35;let e=enemies.fi
 function build(){if(woodCount<3){say('木材が足りない！ 木を集めよう');return}woodCount-=3;let b=new THREE.Group();let x=player.position.x,z=player.position.z;let base=new THREE.Mesh(new THREE.BoxGeometry(1.8,1.6,1.8),wood);base.position.y=.8;b.add(base);let r=new THREE.Mesh(new THREE.ConeGeometry(1.45,1,4),roof);r.position.y=2;b.add(r);b.position.set(x,1.4,z);island.add(b);buildings.push(b);say('小さな小屋を建てた！')}
 function updateStatus(){if(mode==='explore')status.textContent='宝石 '+collected+' / 8';if(mode==='survival')status.textContent='体力 '+Math.round(hp)+'　食料 '+Math.round(food)+'　木材 '+woodCount;if(mode==='rpg')status.textContent='HP '+Math.round(hp)+'　XP '+score;if(mode==='build')status.textContent='木材 '+woodCount+'　建築数 '+buildings.length}
 let last=performance.now();function animate(now){requestAnimationFrame(animate);let dt=Math.min((now-last)/1000,.04);last=now;const speed=5*dt;let dx=0,dz=0;if(keys.KeyW||keys.ArrowUp)dz-=1;if(keys.KeyS||keys.ArrowDown)dz+=1;if(keys.KeyA||keys.ArrowLeft)dx-=1;if(keys.KeyD||keys.ArrowRight)dx+=1;let len=Math.hypot(dx,dz)||1;player.position.x+=dx/len*speed;player.position.z+=dz/len*speed;player.position.x=Math.max(-9,Math.min(9,player.position.x));player.position.z=Math.max(-9,Math.min(9,player.position.z));if(dx||dz)player.rotation.y=Math.atan2(dx,dz);
-const floorY=terrainHeight(player.position.x,player.position.z)+.08;if(keys.Space&&player.position.y<=floorY+.02)vy=7;vy-=18*dt;player.position.y+=vy*dt;if(player.position.y<floorY){player.position.y=floorY;vy=0}
+let floorY=terrainHeight(player.position.x,player.position.z)+.08;const bridgeTop=bridgeFloorAt(player.position.x,player.position.z);if(bridgeTop!==null&&player.position.y>=bridgeTop-.42&&vy<=0)floorY=Math.max(floorY,bridgeTop);if(keys.Space&&player.position.y<=floorY+.02)vy=7;vy-=18*dt;player.position.y+=vy*dt;if(player.position.y<floorY){player.position.y=floorY;vy=0}
 if(mode==='explore'){gems.forEach(g=>{if(g.visible&&g.position.distanceTo(player.position)<1.15){g.visible=false;collected++;say('宝石を見つけた！');}});if(collected===8&&gems.some(g=>g.visible)){}if(collected===8&& !animate.done){animate.done=true;say('全ての宝石を集めた！ 島の探索完了！')}}
 if(mode==='survival'){food=Math.max(0,food-dt*.8);if(food===0)hp=Math.max(0,hp-dt*3);if(keys.KeyE){let t=trunks.find(t=>t.position.distanceTo(player.position)<2.5);if(t&&(!t.userData.last||now-t.userData.last>700)){t.userData.last=now;woodCount++;say('木材 +1')}}if(hp<=0)say('体力が尽きた！')}
 if(mode==='rpg'){enemies.forEach((e,i)=>{e.visible=e.userData.hp>0;if(e.visible){e.position.y=1.7+Math.sin(now*.004+i)*.12;let d=e.position.distanceTo(player.position);if(d<1.3&&Math.random()<dt*.35)hp=Math.max(0,hp-2)}});if(keys.KeyF)attack();attackCooldown=Math.max(0,attackCooldown-dt)}
