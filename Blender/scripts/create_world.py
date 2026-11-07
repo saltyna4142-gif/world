@@ -3,9 +3,8 @@ import math
 import random
 from mathutils import Vector, noise
 
-# Infinite 3D World — Day 03
-# Blender 4.x | Floating island, creek, waterfall and cedar footbridge
-# Blender 4.x | Floating island with a creek and waterfall
+# Infinite 3D World — Day 04
+# Blender 4.x | Floating island, creek, waterfall, cedar footbridge and riverbank flora
 
 random.seed(14)
 
@@ -289,6 +288,175 @@ for side in (-0.66, 0.66):
     )
     rail.rotation_euler.z = bridge_angle
 
+
+# Riverbank ferns, moss cushions and small wildflowers — Day 04
+# Plants are anchored to the same procedural height field as the original island.
+fern_green = material("Fern • deep emerald", (0.055, 0.25, 0.13))
+fern_light = material("Fern • fresh leaf tips", (0.18, 0.40, 0.20))
+fern_stem_mat = material("Fern • green rachis", (0.12, 0.28, 0.12))
+moss_bank_mat = material("Moss • soft riverbank cushions", (0.16, 0.32, 0.13))
+flower_lilac = material("Wildflower • pale lilac", (0.55, 0.38, 0.68), 0.62)
+flower_gold = material("Wildflower • warm cream", (0.92, 0.72, 0.30), 0.62)
+
+def make_bank_fern(x, y, scale=1.0, seed=0):
+    rng = random.Random(seed)
+    base_z = terrain_height(x, y) + 0.055
+    leaf_verts, leaf_faces, leaf_materials = [], [], []
+
+    # Five arching fronds form one low rosette. Each rosette's leaflets share one mesh.
+    for frond_index in range(5):
+        angle = (math.tau * frond_index / 5.0) + rng.uniform(-0.16, 0.16)
+        dx, dy = math.cos(angle), math.sin(angle)
+        side_x, side_y = -dy, dx
+        length = scale * rng.uniform(0.58, 0.78)
+        stem_points = []
+        for step in range(7):
+            t = step / 6.0
+            px = x + dx * length * t
+            py = y + dy * length * t
+            pz = base_z + scale * (0.06 + 0.34 * math.sin(math.pi * t * 0.82) - 0.10 * t)
+            stem_points.append((px, py, pz))
+        make_water_curve(
+            "Fern • arching riverbank rachis",
+            stem_points,
+            0.012 * scale,
+            fern_stem_mat
+        )
+
+        for leaflet_index in range(1, 6):
+            t = leaflet_index / 6.0
+            px = x + dx * length * t
+            py = y + dy * length * t
+            pz = base_z + scale * (0.06 + 0.34 * math.sin(math.pi * t * 0.82) - 0.10 * t)
+            leaflet_length = scale * 0.25 * (1.0 - 0.24 * t)
+            for side in (-1.0, 1.0):
+                sx, sy = side_x * side, side_y * side
+                root = (px, py, pz)
+                mid = (
+                    px + sx * leaflet_length * 0.58 + dx * leaflet_length * 0.12,
+                    py + sy * leaflet_length * 0.58 + dy * leaflet_length * 0.12,
+                    pz + 0.025 * scale
+                )
+                tip = (
+                    px + sx * leaflet_length + dx * leaflet_length * 0.28,
+                    py + sy * leaflet_length + dy * leaflet_length * 0.28,
+                    pz + 0.008 * scale
+                )
+                half_width = leaflet_length * 0.16
+                width_x, width_y = dx * half_width, dy * half_width
+                first = len(leaf_verts)
+                leaf_verts.extend([
+                    root,
+                    (mid[0] + width_x, mid[1] + width_y, mid[2]),
+                    tip,
+                    (mid[0] - width_x, mid[1] - width_y, mid[2])
+                ])
+                leaf_faces.extend([(first, first + 1, first + 2), (first, first + 2, first + 3)])
+                material_index = 1 if (frond_index + leaflet_index) % 3 == 0 else 0
+                leaf_materials.extend([material_index, material_index])
+
+    leaf_mesh = bpy.data.meshes.new("Fern • paired leaflet mesh")
+    leaf_mesh.from_pydata(leaf_verts, [], leaf_faces)
+    leaf_mesh.materials.append(fern_green)
+    leaf_mesh.materials.append(fern_light)
+    for polygon, material_index in zip(leaf_mesh.polygons, leaf_materials):
+        polygon.material_index = material_index
+    leaf_obj = bpy.data.objects.new("Day 04 • riverbank fern rosette", leaf_mesh)
+    bpy.context.collection.objects.link(leaf_obj)
+
+def make_moss_cushion(x, y, sx, sy, seed=0):
+    rng = random.Random(seed)
+    z = terrain_height(x, y) + 0.055
+    bpy.ops.mesh.primitive_ico_sphere_add(
+        subdivisions=2,
+        radius=1.0,
+        location=(x, y, z)
+    )
+    patch = bpy.context.object
+    patch.name = "Day 04 • soft moss cushion"
+    patch.scale = (sx, sy, rng.uniform(0.075, 0.12))
+    patch.rotation_euler.z = rng.uniform(-0.5, 0.5)
+    patch.data.materials.append(moss_bank_mat)
+
+def make_wildflower(x, y, scale=1.0, petal_mat=None, seed=0):
+    rng = random.Random(seed)
+    base_z = terrain_height(x, y) + 0.06
+    stem_height = 0.30 * scale
+    bpy.ops.mesh.primitive_cylinder_add(
+        vertices=7,
+        radius=0.018 * scale,
+        depth=stem_height,
+        location=(x, y, base_z + stem_height * 0.5)
+    )
+    stem = bpy.context.object
+    stem.name = "Day 04 • wildflower stem"
+    stem.data.materials.append(fern_stem_mat)
+
+    head_z = base_z + stem_height
+    for petal_index in range(5):
+        angle = math.tau * petal_index / 5.0
+        petal_x = x + math.cos(angle) * 0.072 * scale
+        petal_y = y + math.sin(angle) * 0.072 * scale
+        bpy.ops.mesh.primitive_uv_sphere_add(
+            segments=10,
+            ring_count=6,
+            radius=1.0,
+            location=(petal_x, petal_y, head_z)
+        )
+        petal = bpy.context.object
+        petal.name = "Day 04 • wildflower petal"
+        petal.scale = (0.082 * scale, 0.043 * scale, 0.027 * scale)
+        petal.rotation_euler.z = angle
+        petal.data.materials.append(petal_mat or flower_lilac)
+
+    bpy.ops.mesh.primitive_uv_sphere_add(
+        segments=10,
+        ring_count=6,
+        radius=1.0,
+        location=(x, y, head_z + 0.012 * scale)
+    )
+    center = bpy.context.object
+    center.name = "Day 04 • wildflower center"
+    center.scale = (0.038 * scale, 0.038 * scale, 0.032 * scale)
+    center.data.materials.append(flower_gold)
+
+# Ferns sit on alternating banks, leaving the bridge deck and stream channel readable.
+fern_sites = [
+    (5.25, 3.50, 0.82),
+    (4.05, 2.05, 0.78),
+    (6.75, 2.45, 0.76),
+    (5.20, -1.40, 0.72),
+    (8.55, -0.15, 0.78),
+    (7.10, -1.80, 0.76),
+    (8.05, -2.95, 0.70)
+]
+for index, (fx, fy, fs) in enumerate(fern_sites):
+    make_bank_fern(fx, fy, fs, seed=410 + index)
+
+# Low moss patches soften the transition between gravel, stones and grass.
+moss_sites = [
+    (4.75, 3.65, 0.42, 0.27),
+    (4.00, 2.65, 0.34, 0.24),
+    (6.80, 2.05, 0.38, 0.25),
+    (5.45, -1.20, 0.36, 0.24),
+    (8.55, -0.85, 0.42, 0.26),
+    (7.35, -2.05, 0.35, 0.24),
+    (8.35, -3.35, 0.38, 0.25)
+]
+for index, (mx, my, msx, msy) in enumerate(moss_sites):
+    make_moss_cushion(mx, my, msx, msy, seed=430 + index)
+
+# A few restrained lilac and cream flowers add scale without hiding the footbridge.
+flower_sites = [
+    (3.85, 4.25, 0.90, flower_lilac),
+    (3.35, -2.55, 0.82, flower_gold),
+    (7.95, 2.95, 0.86, flower_lilac),
+    (8.25, -3.85, 0.78, flower_gold),
+    (2.95, -4.20, 0.82, flower_lilac)
+]
+for index, (wx, wy, ws, petal_material) in enumerate(flower_sites):
+    make_wildflower(wx, wy, ws, petal_material, seed=450 + index)
+
 # Lighting, world, camera
 world = bpy.data.worlds.new("Soft blue morning") if not bpy.data.worlds else bpy.data.worlds[0]
 bpy.context.scene.world = world
@@ -314,7 +482,7 @@ scene.render.resolution_x=1400; scene.render.resolution_y=1050; scene.render.res
 scene.render.image_settings.file_format='PNG'
 scene.render.film_transparent=False
 scene.view_settings.view_transform='AgX'
-scene.render.filepath='//Screenshots/day02_creek_waterfall.png'
+scene.render.filepath='//Screenshots/day04_riverbank.png'
 
 # Helpful viewport framing
 bpy.context.view_layer.objects.active=island
