@@ -3,7 +3,7 @@ import math
 import random
 from mathutils import Vector, noise
 
-# Infinite 3D World — Day 04
+# Infinite 3D World — Day 05
 # Blender 4.x | Floating island, creek, waterfall, cedar footbridge and riverbank flora
 
 random.seed(14)
@@ -457,6 +457,128 @@ flower_sites = [
 for index, (wx, wy, ws, petal_material) in enumerate(flower_sites):
     make_wildflower(wx, wy, ws, petal_material, seed=450 + index)
 
+# Wooden exploration signpost beside the path to the creek bridge — Day 05
+# Placed between the cabin trail and the existing bridge; all heights use the shared terrain sampler.
+sign_x, sign_y = 4.05, -0.72
+sign_ground_z = terrain_height(sign_x, sign_y) + 0.045
+sign_face_mat = material("Signpost • sun-warmed cedar", (0.48, 0.27, 0.12), 0.78)
+sign_ink_mat = material("Signpost • dark carved lettering", (0.075, 0.055, 0.035), 0.9)
+sign_pin_mat = material("Signpost • aged brass pins", (0.48, 0.30, 0.10), 0.34)
+
+# A low stone footing keeps the timber post visually anchored in the meadow.
+bpy.ops.mesh.primitive_ico_sphere_add(
+    subdivisions=2,
+    radius=1.0,
+    location=(sign_x, sign_y, sign_ground_z + 0.13)
+)
+sign_footing = bpy.context.object
+sign_footing.name = "Day 05 • signpost stone footing"
+sign_footing.scale = (0.43, 0.36, 0.19)
+sign_footing.data.materials.append(stone)
+
+# Upright cedar post with a simple carved cap.
+bpy.ops.mesh.primitive_cylinder_add(
+    vertices=10,
+    radius=0.095,
+    depth=2.30,
+    location=(sign_x, sign_y, sign_ground_z + 1.23)
+)
+sign_post = bpy.context.object
+sign_post.name = "Day 05 • cedar signpost upright"
+sign_post.data.materials.append(wood)
+sign_post_bevel = sign_post.modifiers.new("Worn post edges", "BEVEL")
+sign_post_bevel.width = 0.025
+sign_post_bevel.segments = 2
+
+cube_obj(
+    "Day 05 • signpost carved cap",
+    (sign_x, sign_y, sign_ground_z + 2.40),
+    (0.25, 0.24, 0.12),
+    wood,
+    0.035
+)
+
+def make_direction_board(name, center_z, direction, label):
+    # One extruded arrow-shaped board; direction +1 points toward the creek bridge.
+    half_height = 0.19
+    if direction > 0:
+        outline = [
+            (-0.82, -half_height), (0.59, -half_height),
+            (0.59, -0.31), (1.02, 0.0),
+            (0.59, 0.31), (0.59, half_height),
+            (-0.82, half_height)
+        ]
+        text_offset = -0.10
+    else:
+        outline = [
+            (0.82, -half_height), (-0.59, -half_height),
+            (-0.59, -0.31), (-1.02, 0.0),
+            (-0.59, 0.31), (-0.59, half_height),
+            (0.82, half_height)
+        ]
+        text_offset = 0.10
+
+    depth = 0.14
+    board_vertices = []
+    for yy in (-depth * 0.5, depth * 0.5):
+        for xx, zz in outline:
+            board_vertices.append((sign_x + xx, sign_y + yy, center_z + zz))
+
+    count = len(outline)
+    board_faces = [tuple(range(count)), tuple(range(count, count * 2))[::-1]]
+    for idx in range(count):
+        nxt = (idx + 1) % count
+        board_faces.append((idx, nxt, count + nxt, count + idx))
+
+    board_mesh = bpy.data.meshes.new(name + " mesh")
+    board_mesh.from_pydata(board_vertices, [], board_faces)
+    board_mesh.materials.append(sign_face_mat)
+    board_obj = bpy.data.objects.new(name, board_mesh)
+    bpy.context.collection.objects.link(board_obj)
+    board_bevel = board_obj.modifiers.new("Softly worn sign edges", "BEVEL")
+    board_bevel.width = 0.025
+    board_bevel.segments = 2
+    board_obj.modifiers.new("Sign weighted corner normals", "WEIGHTED_NORMAL")
+
+    # Text lies on the front face, facing the presentation camera's general direction.
+    text_curve = bpy.data.curves.new(name + " lettering", "FONT")
+    text_curve.body = label
+    text_curve.align_x = "CENTER"
+    text_curve.align_y = "CENTER"
+    text_curve.size = 0.19
+    text_curve.extrude = 0.002
+    text_obj = bpy.data.objects.new(name + " • lettering", text_curve)
+    bpy.context.collection.objects.link(text_obj)
+    text_obj.location = (sign_x + text_offset, sign_y - depth * 0.5 - 0.008, center_z)
+    text_obj.rotation_euler = (math.radians(90), 0.0, 0.0)
+    text_obj.data.materials.append(sign_ink_mat)
+
+    # Two small brass pins suggest hand-built joinery without crowding the label.
+    for dz in (-0.125, 0.125):
+        bpy.ops.mesh.primitive_uv_sphere_add(
+            segments=10,
+            ring_count=6,
+            radius=0.027,
+            location=(sign_x, sign_y - depth * 0.5 - 0.018, center_z + dz)
+        )
+        pin = bpy.context.object
+        pin.name = name + " • brass fixing"
+        pin.scale = (1.0, 0.45, 1.0)
+        pin.data.materials.append(sign_pin_mat)
+
+make_direction_board(
+    "Day 05 • arrow board toward creek bridge",
+    sign_ground_z + 1.88,
+    1,
+    "BROOK"
+)
+make_direction_board(
+    "Day 05 • arrow board toward cabin",
+    sign_ground_z + 1.37,
+    -1,
+    "CABIN"
+)
+
 # Lighting, world, camera
 world = bpy.data.worlds.new("Soft blue morning") if not bpy.data.worlds else bpy.data.worlds[0]
 bpy.context.scene.world = world
@@ -482,7 +604,7 @@ scene.render.resolution_x=1400; scene.render.resolution_y=1050; scene.render.res
 scene.render.image_settings.file_format='PNG'
 scene.render.film_transparent=False
 scene.view_settings.view_transform='AgX'
-scene.render.filepath='//Screenshots/day04_riverbank.png'
+scene.render.filepath='//Screenshots/day05_signpost.png'
 
 # Helpful viewport framing
 bpy.context.view_layer.objects.active=island
@@ -491,4 +613,4 @@ for area in bpy.context.screen.areas:
     if area.type == 'VIEW_3D':
         area.spaces.active.region_3d.view_distance=30
 
-print("Infinite 3D World — Day 02 creek and waterfall added. Save as world.blend and render with F12.")
+print("Infinite 3D World — Day 05 signpost added. Save as world.blend and render with F12.")
