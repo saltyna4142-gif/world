@@ -3,7 +3,7 @@ import math
 import random
 from mathutils import Vector, noise
 
-# Infinite 3D World — Day 05
+# Infinite 3D World — Day 06
 # Blender 4.x | Floating island, creek, waterfall, cedar footbridge and riverbank flora
 
 random.seed(14)
@@ -579,6 +579,150 @@ make_direction_board(
     "CABIN"
 )
 
+
+# A small discovery chest with an open lid and an old trail map — Day 06
+# Set beside, but not on, the signpost-to-bridge route. All placement uses the shared terrain sampler.
+chest_x, chest_y = 3.18, -1.82
+chest_ground_z = terrain_height(chest_x, chest_y) + 0.055
+chest_base_z = chest_ground_z
+
+chest_wood = material("Treasure chest • dark walnut", (0.19, 0.075, 0.032), 0.68)
+chest_trim = material("Treasure chest • cedar edging", (0.36, 0.17, 0.065), 0.72)
+chest_metal = material("Treasure chest • aged bronze", (0.42, 0.25, 0.09), 0.38)
+map_paper = material("Old map • warm parchment", (0.72, 0.57, 0.34), 0.92)
+map_ink = material("Old map • sepia ink", (0.18, 0.10, 0.045), 0.95)
+
+# Four low feet and a solid floor lift the chest slightly above the meadow.
+for dx in (-0.34, 0.34):
+    for dy in (-0.22, 0.22):
+        cube_obj(
+            "Day 06 • chest foot",
+            (chest_x + dx, chest_y + dy, chest_base_z + 0.075),
+            (0.13, 0.13, 0.15),
+            chest_wood,
+            0.025
+        )
+
+cube_obj(
+    "Day 06 • chest bottom",
+    (chest_x, chest_y, chest_base_z + 0.14),
+    (0.96, 0.66, 0.12),
+    chest_wood,
+    0.035
+)
+
+# Four separate walls leave the top open so the parchment map can be seen.
+wall_center_z = chest_base_z + 0.36
+cube_obj("Day 06 • chest front wall", (chest_x, chest_y - 0.28, wall_center_z),
+         (0.96, 0.10, 0.42), chest_wood, 0.025)
+cube_obj("Day 06 • chest rear wall", (chest_x, chest_y + 0.28, wall_center_z),
+         (0.96, 0.10, 0.42), chest_wood, 0.025)
+for side in (-1, 1):
+    cube_obj("Day 06 • chest side wall",
+             (chest_x + side * 0.43, chest_y, wall_center_z),
+             (0.10, 0.48, 0.42), chest_wood, 0.025)
+
+# Cedar bands decorate the front and sides; bronze plates reinforce the corners.
+for dx in (-0.29, 0.0, 0.29):
+    cube_obj("Day 06 • front cedar slat",
+             (chest_x + dx, chest_y - 0.337, wall_center_z),
+             (0.055, 0.025, 0.35), chest_trim, 0.012)
+for side in (-1, 1):
+    for dy in (-0.16, 0.16):
+        cube_obj("Day 06 • bronze corner strap",
+                 (chest_x + side * 0.485, chest_y + dy, wall_center_z),
+                 (0.025, 0.055, 0.34), chest_metal, 0.008)
+
+# The old map rests inside the open chest.
+map_z = chest_base_z + 0.205
+cube_obj(
+    "Day 06 • unfolded parchment map",
+    (chest_x, chest_y, map_z),
+    (0.70, 0.43, 0.014),
+    map_paper,
+    0.012
+)
+
+# A winding sepia trail and a marked destination make the map legible from above.
+make_water_curve(
+    "Day 06 • inked trail on old map",
+    [
+        (chest_x - 0.27, chest_y - 0.13, map_z + 0.018),
+        (chest_x - 0.13, chest_y - 0.04, map_z + 0.018),
+        (chest_x - 0.03, chest_y + 0.08, map_z + 0.018),
+        (chest_x + 0.12, chest_y + 0.045, map_z + 0.018),
+        (chest_x + 0.23, chest_y + 0.14, map_z + 0.018)
+    ],
+    0.009,
+    map_ink
+)
+# A small ring and crossed strokes mark the map's hidden destination.
+bpy.ops.mesh.primitive_torus_add(
+    major_segments=16,
+    minor_segments=6,
+    location=(chest_x + 0.22, chest_y + 0.14, map_z + 0.025),
+    major_radius=0.052,
+    minor_radius=0.008
+)
+map_marker = bpy.context.object
+map_marker.name = "Day 06 • map destination marker"
+map_marker.data.materials.append(map_ink)
+for angle in (math.radians(45), math.radians(-45)):
+    mark = cube_obj(
+        "Day 06 • map X mark",
+        (chest_x + 0.22, chest_y + 0.14, map_z + 0.03),
+        (0.105, 0.012, 0.008),
+        map_ink,
+        0.002
+    )
+    mark.rotation_euler.z = angle
+
+# The lid is propped open behind the box; two bronze hinge barrels suggest a working hinge.
+lid_angle = math.radians(-55)
+hinge_y = chest_y + 0.28
+hinge_z = chest_base_z + 0.57
+lid_center_y = hinge_y - 0.32 * math.cos(math.radians(55))
+lid_center_z = hinge_z + 0.32 * math.sin(math.radians(55))
+lid = cube_obj(
+    "Day 06 • open chest lid",
+    (chest_x, lid_center_y, lid_center_z),
+    (1.02, 0.64, 0.10),
+    chest_trim,
+    0.035
+)
+lid.rotation_euler.x = lid_angle
+
+for dx in (-0.30, 0.30):
+    bpy.ops.mesh.primitive_cylinder_add(
+        vertices=12,
+        radius=0.045,
+        depth=0.16,
+        location=(chest_x + dx, hinge_y, hinge_z),
+        rotation=(0.0, math.radians(90), 0.0)
+    )
+    hinge = bpy.context.object
+    hinge.name = "Day 06 • bronze lid hinge"
+    hinge.data.materials.append(chest_metal)
+
+# A simple bronze clasp on the front completes the small explorer's find.
+cube_obj(
+    "Day 06 • front clasp plate",
+    (chest_x, chest_y - 0.345, chest_base_z + 0.34),
+    (0.16, 0.035, 0.18),
+    chest_metal,
+    0.018
+)
+bpy.ops.mesh.primitive_uv_sphere_add(
+    segments=12,
+    ring_count=8,
+    radius=0.045,
+    location=(chest_x, chest_y - 0.37, chest_base_z + 0.34)
+)
+clasp = bpy.context.object
+clasp.name = "Day 06 • clasp stud"
+clasp.scale = (1.0, 0.45, 1.0)
+clasp.data.materials.append(chest_trim)
+
 # Lighting, world, camera
 world = bpy.data.worlds.new("Soft blue morning") if not bpy.data.worlds else bpy.data.worlds[0]
 bpy.context.scene.world = world
@@ -604,7 +748,7 @@ scene.render.resolution_x=1400; scene.render.resolution_y=1050; scene.render.res
 scene.render.image_settings.file_format='PNG'
 scene.render.film_transparent=False
 scene.view_settings.view_transform='AgX'
-scene.render.filepath='//Screenshots/day05_signpost.png'
+scene.render.filepath='//Screenshots/day06_map_chest.png'
 
 # Helpful viewport framing
 bpy.context.view_layer.objects.active=island
@@ -613,4 +757,4 @@ for area in bpy.context.screen.areas:
     if area.type == 'VIEW_3D':
         area.spaces.active.region_3d.view_distance=30
 
-print("Infinite 3D World — Day 05 signpost added. Save as world.blend and render with F12.")
+print("Infinite 3D World — Day 06 explorer map chest added. Save as world.blend and render with F12.")
