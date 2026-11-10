@@ -891,4 +891,4 @@ for area in bpy.context.screen.areas:
     if area.type == 'VIEW_3D':
         area.spaces.active.region_3d.view_distance=30
 
-print("Infinite 3D World — Day 06 explorer map chest added. Save as world.blend and render with F12.")
+print("Infinite 3D World — Day 07 wooden lantern added. Save as world.blend and render with F12.")
