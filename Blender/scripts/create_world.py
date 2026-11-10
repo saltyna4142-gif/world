@@ -3,7 +3,7 @@ import math
 import random
 from mathutils import Vector, noise
 
-# Infinite 3D World — Day 06
+# Infinite 3D World — Day 07
 # Blender 4.x | Floating island, creek, waterfall, cedar footbridge and riverbank flora
 
 random.seed(14)
@@ -723,6 +723,140 @@ clasp.name = "Day 06 • clasp stud"
 clasp.scale = (1.0, 0.45, 1.0)
 clasp.data.materials.append(chest_trim)
 
+
+# A small cedar-and-bronze lantern beside the map chest — Day 07
+# It marks the discovery point without blocking the path or the bridge view.
+lantern_x, lantern_y = 2.25, -2.95
+lantern_ground_z = terrain_height(lantern_x, lantern_y) + 0.045
+
+lantern_wood = material("Lantern • dark cedar frame", (0.16, 0.075, 0.035), 0.72)
+lantern_bronze = material("Lantern • aged bronze fittings", (0.42, 0.25, 0.09), 0.38)
+lantern_glass = material("Lantern • warm amber panes", (0.38, 0.19, 0.065), 0.32)
+
+flame_mat = bpy.data.materials.new("Lantern • glowing golden flame")
+flame_mat.use_nodes = True
+flame_nodes = flame_mat.node_tree.nodes
+flame_nodes.clear()
+flame_emission = flame_nodes.new("ShaderNodeEmission")
+flame_emission.inputs["Color"].default_value = (1.0, 0.43, 0.10, 1.0)
+flame_emission.inputs["Strength"].default_value = 3.5
+flame_output = flame_nodes.new("ShaderNodeOutputMaterial")
+flame_mat.node_tree.links.new(flame_emission.outputs["Emission"], flame_output.inputs["Surface"])
+
+# Stone footing, timber post and a broad lower plinth.
+bpy.ops.mesh.primitive_ico_sphere_add(
+    subdivisions=1, radius=1.0,
+    location=(lantern_x, lantern_y, lantern_ground_z + 0.09)
+)
+lantern_foot = bpy.context.object
+lantern_foot.name = "Day 07 • lantern stone footing"
+lantern_foot.scale = (0.38, 0.34, 0.16)
+lantern_foot.data.materials.append(stone)
+
+bpy.ops.mesh.primitive_cylinder_add(
+    vertices=10, radius=0.075, depth=0.82,
+    location=(lantern_x, lantern_y, lantern_ground_z + 0.50)
+)
+lantern_post = bpy.context.object
+lantern_post.name = "Day 07 • lantern cedar post"
+lantern_post.data.materials.append(lantern_wood)
+post_bevel = lantern_post.modifiers.new("Lantern post softened edges", "BEVEL")
+post_bevel.width = 0.018
+post_bevel.segments = 2
+
+cube_obj(
+    "Day 07 • lantern lower plinth",
+    (lantern_x, lantern_y, lantern_ground_z + 0.91),
+    (0.62, 0.62, 0.14), lantern_wood, 0.035
+)
+
+# Four amber panes sit inside a sturdy cedar frame.
+body_center_z = lantern_ground_z + 1.285
+body_height = 0.58
+pane_height = 0.48
+pane_center_z = body_center_z
+frame_offset = 0.205
+frame_width = 0.055
+
+for dx in (-frame_offset, frame_offset):
+    for dy in (-frame_offset, frame_offset):
+        cube_obj(
+            "Day 07 • lantern corner stile",
+            (lantern_x + dx, lantern_y + dy, body_center_z),
+            (frame_width, frame_width, body_height),
+            lantern_wood, 0.012
+        )
+
+# Front and rear panes.
+for dy in (-0.17, 0.17):
+    cube_obj(
+        "Day 07 • amber lantern glass",
+        (lantern_x, lantern_y + dy, pane_center_z),
+        (0.34, 0.018, pane_height),
+        lantern_glass, 0.008
+    )
+# Left and right panes.
+for dx in (-0.17, 0.17):
+    cube_obj(
+        "Day 07 • amber lantern glass",
+        (lantern_x + dx, lantern_y, pane_center_z),
+        (0.018, 0.34, pane_height),
+        lantern_glass, 0.008
+    )
+
+# Bronze bands and the roof make the silhouette readable at a distance.
+cube_obj(
+    "Day 07 • lantern bottom bronze band",
+    (lantern_x, lantern_y, lantern_ground_z + 0.985),
+    (0.50, 0.50, 0.055), lantern_bronze, 0.012
+)
+cube_obj(
+    "Day 07 • lantern top bronze band",
+    (lantern_x, lantern_y, lantern_ground_z + 1.585),
+    (0.50, 0.50, 0.055), lantern_bronze, 0.012
+)
+
+bpy.ops.mesh.primitive_cone_add(
+    vertices=4, radius1=0.39, radius2=0.13, depth=0.24,
+    location=(lantern_x, lantern_y, lantern_ground_z + 1.72),
+    rotation=(0.0, 0.0, math.radians(45.0))
+)
+lantern_roof = bpy.context.object
+lantern_roof.name = "Day 07 • cedar lantern roof"
+lantern_roof.data.materials.append(lantern_wood)
+roof_bevel = lantern_roof.modifiers.new("Lantern roof softened edges", "BEVEL")
+roof_bevel.width = 0.018
+roof_bevel.segments = 2
+
+bpy.ops.mesh.primitive_uv_sphere_add(
+    segments=12, ring_count=8, radius=0.075,
+    location=(lantern_x, lantern_y, lantern_ground_z + 1.88)
+)
+lantern_finial = bpy.context.object
+lantern_finial.name = "Day 07 • lantern roof finial"
+lantern_finial.data.materials.append(lantern_bronze)
+
+# A compact emissive flame and warm point light illuminate the nearby map chest.
+bpy.ops.mesh.primitive_uv_sphere_add(
+    segments=16, ring_count=10, radius=1.0,
+    location=(lantern_x, lantern_y, body_center_z)
+)
+lantern_flame = bpy.context.object
+lantern_flame.name = "Day 07 • glowing lantern flame"
+lantern_flame.scale = (0.105, 0.105, 0.22)
+lantern_flame.data.materials.append(flame_mat)
+
+bpy.ops.object.light_add(
+    type="POINT",
+    location=(lantern_x, lantern_y - 0.03, body_center_z)
+)
+lantern_light = bpy.context.object
+lantern_light.name = "Day 07 • warm lantern point light"
+lantern_light.data.energy = 55
+lantern_light.data.color = (1.0, 0.48, 0.20)
+lantern_light.data.shadow_soft_size = 0.48
+
+
 # Lighting, world, camera
 world = bpy.data.worlds.new("Soft blue morning") if not bpy.data.worlds else bpy.data.worlds[0]
 bpy.context.scene.world = world
@@ -748,7 +882,7 @@ scene.render.resolution_x=1400; scene.render.resolution_y=1050; scene.render.res
 scene.render.image_settings.file_format='PNG'
 scene.render.film_transparent=False
 scene.view_settings.view_transform='AgX'
-scene.render.filepath='//Screenshots/day06_map_chest.png'
+scene.render.filepath='//Screenshots/day07_lantern.png'
 
 # Helpful viewport framing
 bpy.context.view_layer.objects.active=island
