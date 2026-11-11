@@ -3,7 +3,7 @@ import math
 import random
 from mathutils import Vector, noise
 
-# Infinite 3D World — Day 07
+# Infinite 3D World — Day 09
 # Blender 4.x | Floating island, creek, waterfall, cedar footbridge and riverbank flora
 
 random.seed(14)
@@ -935,6 +935,193 @@ for index, (cx, cy, cs) in enumerate(cairn_sites):
     )
 
 
+
+# Hidden grotto entrance at the end of the cairn trail — Day 09
+# A shallow arched recess faces the presentation camera and sits just beyond the final turquoise cairn.
+cave_x, cave_y = 8.35, -6.05
+cave_ground_z = terrain_height(cave_x, cave_y) + 0.035
+
+# The outward normal points toward the camera; the tangent defines the arch width.
+cave_nx, cave_ny = 0.52, -0.854
+cave_n_len = math.sqrt(cave_nx * cave_nx + cave_ny * cave_ny)
+cave_nx, cave_ny = cave_nx / cave_n_len, cave_ny / cave_n_len
+cave_tx, cave_ty = -cave_ny, cave_nx
+
+def cave_position(along, depth, height):
+    return (
+        cave_x + cave_tx * along - cave_nx * depth,
+        cave_y + cave_ty * along - cave_ny * depth,
+        cave_ground_z + height
+    )
+
+cave_rock_mat = material("Grotto • weathered charcoal stone", (0.16, 0.19, 0.20), 0.94)
+cave_inner_mat = material("Grotto • shadowed inner stone", (0.035, 0.047, 0.052), 0.98)
+cave_floor_mat = material("Grotto • damp threshold", (0.095, 0.12, 0.12), 0.92)
+
+# Build an arched polygon: straight jambs and a rounded crown.
+cave_half_width = 0.66
+cave_spring_height = 0.74
+cave_outline = [(-cave_half_width, 0.0), (cave_half_width, 0.0)]
+cave_outline.extend([
+    (
+        cave_half_width * math.cos(math.pi * index / 16.0),
+        cave_spring_height + cave_half_width * math.sin(math.pi * index / 16.0)
+    )
+    for index in range(17)
+])
+
+# The tunnel shell extends inward, while a dark rear face makes the recess read as depth.
+cave_front_depth, cave_back_depth = 0.10, 1.08
+cave_count = len(cave_outline)
+cave_shell_verts = (
+    [cave_position(u, cave_front_depth, z) for u, z in cave_outline] +
+    [cave_position(u, cave_back_depth, z) for u, z in cave_outline]
+)
+cave_shell_faces = []
+for index in range(cave_count):
+    next_index = (index + 1) % cave_count
+    cave_shell_faces.append((
+        index,
+        next_index,
+        cave_count + next_index,
+        cave_count + index
+    ))
+
+cave_shell_mesh = bpy.data.meshes.new("Day 09 • arched tunnel lining mesh")
+cave_shell_mesh.from_pydata(cave_shell_verts, [], cave_shell_faces)
+cave_shell_mesh.materials.append(cave_inner_mat)
+cave_shell = bpy.data.objects.new("Day 09 • recessed grotto lining", cave_shell_mesh)
+bpy.context.collection.objects.link(cave_shell)
+
+cave_back_verts = [cave_position(u, cave_back_depth + 0.012, z) for u, z in cave_outline]
+cave_back_mesh = bpy.data.meshes.new("Day 09 • dark arched interior mesh")
+cave_back_mesh.from_pydata(cave_back_verts, [], [tuple(range(cave_count))])
+cave_back_mesh.materials.append(cave_inner_mat)
+cave_back = bpy.data.objects.new("Day 09 • dark grotto interior", cave_back_mesh)
+bpy.context.collection.objects.link(cave_back)
+
+# A narrow threshold follows the same local orientation as the entrance.
+cave_floor_verts = [
+    cave_position(-cave_half_width, cave_front_depth, 0.025),
+    cave_position(cave_half_width, cave_front_depth, 0.025),
+    cave_position(cave_half_width, cave_back_depth, 0.025),
+    cave_position(-cave_half_width, cave_back_depth, 0.025)
+]
+cave_floor_mesh = bpy.data.meshes.new("Day 09 • cave threshold mesh")
+cave_floor_mesh.from_pydata(cave_floor_verts, [], [(0, 1, 2, 3)])
+cave_floor_mesh.materials.append(cave_floor_mat)
+cave_floor = bpy.data.objects.new("Day 09 • damp cave threshold", cave_floor_mesh)
+bpy.context.collection.objects.link(cave_floor)
+
+# Irregular boulders form a natural arch without covering the opening.
+cave_rng = random.Random(909)
+for index in range(11):
+    if index < 9:
+        angle = math.pi * index / 8.0
+        along = 0.91 * math.cos(angle)
+        height = cave_spring_height + 0.91 * math.sin(angle)
+    else:
+        side = -1.0 if index % 2 else 1.0
+        along = side * cave_rng.uniform(0.78, 0.88)
+        height = cave_rng.uniform(0.20, 0.72)
+
+    radius = cave_rng.uniform(0.23, 0.31)
+    bpy.ops.mesh.primitive_ico_sphere_add(
+        subdivisions=1,
+        radius=1.0,
+        location=cave_position(along, -0.045, height)
+    )
+    boulder = bpy.context.object
+    boulder.name = "Day 09 • rough grotto arch boulder"
+    boulder.scale = (
+        radius * cave_rng.uniform(1.00, 1.28),
+        radius * cave_rng.uniform(0.82, 1.05),
+        radius * cave_rng.uniform(1.05, 1.34)
+    )
+    boulder.rotation_euler = (
+        cave_rng.uniform(-0.18, 0.18),
+        cave_rng.uniform(-0.18, 0.18),
+        math.atan2(cave_ty, cave_tx) + cave_rng.uniform(-0.35, 0.35)
+    )
+    boulder.data.materials.append(cave_rock_mat)
+
+# Moss softens the crown and two thin roots hang just inside the left and right jambs.
+for index, along in enumerate((-0.48, -0.12, 0.28, 0.53)):
+    moss_z = 1.53 + (0.08 if index in (1, 2) else 0.0)
+    bpy.ops.mesh.primitive_ico_sphere_add(
+        subdivisions=2,
+        radius=1.0,
+        location=cave_position(along, -0.13, moss_z)
+    )
+    moss = bpy.context.object
+    moss.name = "Day 09 • moss on grotto crown"
+    moss.scale = (0.24, 0.18, 0.095)
+    moss.data.materials.append(moss_bank_mat)
+
+make_water_curve(
+    "Day 09 • hanging moss root left",
+    [
+        cave_position(-0.48, -0.10, 1.48),
+        cave_position(-0.50, -0.02, 1.30),
+        cave_position(-0.46, 0.06, 1.12),
+        cave_position(-0.43, 0.10, 1.02)
+    ],
+    0.018,
+    moss_bank_mat
+)
+make_water_curve(
+    "Day 09 • hanging moss root right",
+    [
+        cave_position(0.43, -0.10, 1.48),
+        cave_position(0.40, -0.02, 1.34),
+        cave_position(0.44, 0.06, 1.20)
+    ],
+    0.014,
+    moss_bank_mat
+)
+
+# A restrained blue-green crystal glimmer hints that the grotto continues beyond the entrance.
+cave_crystal_mat = bpy.data.materials.new("Grotto • faint turquoise crystal glow")
+cave_crystal_mat.use_nodes = True
+cave_crystal_nodes = cave_crystal_mat.node_tree.nodes
+cave_crystal_nodes.clear()
+cave_crystal_emission = cave_crystal_nodes.new("ShaderNodeEmission")
+cave_crystal_emission.inputs["Color"].default_value = (0.10, 0.55, 0.68, 1.0)
+cave_crystal_emission.inputs["Strength"].default_value = 1.6
+cave_crystal_output = cave_crystal_nodes.new("ShaderNodeOutputMaterial")
+cave_crystal_mat.node_tree.links.new(
+    cave_crystal_emission.outputs["Emission"],
+    cave_crystal_output.inputs["Surface"]
+)
+
+for index, (along, height, size) in enumerate((
+    (-0.16, 0.29, 0.15),
+    (0.02, 0.34, 0.23),
+    (0.19, 0.27, 0.13)
+)):
+    bpy.ops.mesh.primitive_cone_add(
+        vertices=6,
+        radius1=size * 0.48,
+        radius2=0.0,
+        depth=size * 2.0,
+        location=cave_position(along, 0.78, height)
+    )
+    crystal = bpy.context.object
+    crystal.name = "Day 09 • faint grotto crystal"
+    crystal.rotation_euler.y = math.radians(cave_rng.uniform(-12.0, 12.0))
+    crystal.data.materials.append(cave_crystal_mat)
+
+bpy.ops.object.light_add(
+    type="POINT",
+    location=cave_position(0.02, 0.72, 0.48)
+)
+cave_glow = bpy.context.object
+cave_glow.name = "Day 09 • subtle grotto crystal light"
+cave_glow.data.energy = 18
+cave_glow.data.color = (0.18, 0.66, 0.82)
+cave_glow.data.shadow_soft_size = 0.72
+
+
 # Lighting, world, camera
 world = bpy.data.worlds.new("Soft blue morning") if not bpy.data.worlds else bpy.data.worlds[0]
 bpy.context.scene.world = world
@@ -960,7 +1147,7 @@ scene.render.resolution_x=1400; scene.render.resolution_y=1050; scene.render.res
 scene.render.image_settings.file_format='PNG'
 scene.render.film_transparent=False
 scene.view_settings.view_transform='AgX'
-scene.render.filepath='//Screenshots/day08_stone_markers.png'
+scene.render.filepath='//Screenshots/day09_hidden_grotto.png'
 
 # Helpful viewport framing
 bpy.context.view_layer.objects.active=island
@@ -969,4 +1156,4 @@ for area in bpy.context.screen.areas:
     if area.type == 'VIEW_3D':
         area.spaces.active.region_3d.view_distance=30
 
-print("Infinite 3D World — Day 08 stone trail markers added. Save as world.blend and render with F12.")
+print("Infinite 3D World — Day 09 hidden grotto entrance added. Save as world.blend and render with F12.")
