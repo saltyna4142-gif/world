@@ -857,6 +857,84 @@ lantern_light.data.color = (1.0, 0.48, 0.20)
 lantern_light.data.shadow_soft_size = 0.48
 
 
+
+# Small stone cairns follow the old map toward the south-eastern ridge — Day 08
+# Four low, hand-stacked markers form a subtle trail from the map chest toward a future hidden-grotto area.
+marker_stone_mat = material("Trail markers • weathered river stone", (0.27, 0.31, 0.30), 0.92)
+marker_gem_mat = material("Trail markers • muted turquoise waystone", (0.08, 0.30, 0.32), 0.42)
+
+def make_trail_cairn(x, y, scale=1.0, seed=0, destination=False):
+    rng = random.Random(seed)
+    ground_z = terrain_height(x, y) + 0.045
+
+    # A flat, broad footing settles each cairn into the meadow.
+    bpy.ops.mesh.primitive_ico_sphere_add(
+        subdivisions=1,
+        radius=1.0,
+        location=(x, y, ground_z + 0.095 * scale)
+    )
+    footing = bpy.context.object
+    footing.name = "Day 08 • cairn footing stone"
+    footing.scale = (0.34 * scale, 0.28 * scale, 0.12 * scale)
+    footing.data.materials.append(stone)
+
+    # Three irregular stones are stacked with a slight overlap for a hand-built silhouette.
+    stack_bottom = ground_z + 0.16 * scale
+    for level, base_radius in enumerate((0.22, 0.165, 0.12)):
+        radius = base_radius * scale * rng.uniform(0.92, 1.08)
+        height = radius * 1.50
+        bpy.ops.mesh.primitive_ico_sphere_add(
+            subdivisions=1,
+            radius=1.0,
+            location=(
+                x + rng.uniform(-0.045, 0.045) * scale,
+                y + rng.uniform(-0.045, 0.045) * scale,
+                stack_bottom + height * 0.5
+            )
+        )
+        rock = bpy.context.object
+        rock.name = "Day 08 • stacked trail marker stone"
+        rock.scale = (
+            radius * rng.uniform(1.02, 1.22),
+            radius * rng.uniform(0.88, 1.08),
+            radius * 0.75
+        )
+        rock.rotation_euler = (
+            rng.uniform(-0.16, 0.16),
+            rng.uniform(-0.16, 0.16),
+            rng.uniform(-math.pi, math.pi)
+        )
+        rock.data.materials.append(marker_stone_mat)
+        stack_bottom += height * 0.72
+
+    # The final cairn carries a small turquoise stone to identify the map's destination.
+    if destination:
+        bpy.ops.mesh.primitive_ico_sphere_add(
+            subdivisions=2,
+            radius=0.075 * scale,
+            location=(x, y, stack_bottom + 0.045 * scale)
+        )
+        waystone = bpy.context.object
+        waystone.name = "Day 08 • turquoise destination waystone"
+        waystone.scale = (0.90, 0.78, 1.18)
+        waystone.data.materials.append(marker_gem_mat)
+
+# Follow the south-eastern side of the existing creek route without blocking the bridge,
+# signpost, map chest, or lantern. Every cairn is placed against the shared height field.
+cairn_sites = [
+    (4.55, -3.35, 0.92),
+    (5.70, -4.05, 0.96),
+    (6.85, -4.70, 1.00),
+    (7.90, -5.35, 1.04)
+]
+for index, (cx, cy, cs) in enumerate(cairn_sites):
+    make_trail_cairn(
+        cx, cy, cs,
+        seed=810 + index,
+        destination=(index == len(cairn_sites) - 1)
+    )
+
+
 # Lighting, world, camera
 world = bpy.data.worlds.new("Soft blue morning") if not bpy.data.worlds else bpy.data.worlds[0]
 bpy.context.scene.world = world
@@ -882,7 +960,7 @@ scene.render.resolution_x=1400; scene.render.resolution_y=1050; scene.render.res
 scene.render.image_settings.file_format='PNG'
 scene.render.film_transparent=False
 scene.view_settings.view_transform='AgX'
-scene.render.filepath='//Screenshots/day07_lantern.png'
+scene.render.filepath='//Screenshots/day08_stone_markers.png'
 
 # Helpful viewport framing
 bpy.context.view_layer.objects.active=island
@@ -891,4 +969,4 @@ for area in bpy.context.screen.areas:
     if area.type == 'VIEW_3D':
         area.spaces.active.region_3d.view_distance=30
 
-print("Infinite 3D World — Day 07 wooden lantern added. Save as world.blend and render with F12.")
+print("Infinite 3D World — Day 08 stone trail markers added. Save as world.blend and render with F12.")
