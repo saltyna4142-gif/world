@@ -3,7 +3,7 @@ import math
 import random
 from mathutils import Vector, noise
 
-# Infinite 3D World — Day 09
+# Infinite 3D World — Day 10
 # Blender 4.x | Floating island, creek, waterfall, cedar footbridge and riverbank flora
 
 random.seed(14)
@@ -971,7 +971,7 @@ cave_outline.extend([
 ])
 
 # The tunnel shell extends inward, while a dark rear face makes the recess read as depth.
-cave_front_depth, cave_back_depth = 0.10, 1.08
+cave_front_depth, cave_back_depth = 0.10, 3.35
 cave_count = len(cave_outline)
 cave_shell_verts = (
     [cave_position(u, cave_front_depth, z) for u, z in cave_outline] +
@@ -1122,6 +1122,118 @@ cave_glow.data.color = (0.18, 0.66, 0.82)
 cave_glow.data.shadow_soft_size = 0.72
 
 
+# Short exploratory passage, glowing ore seam and an ancient stone tablet — Day 10
+# Extend the existing Day 09 grotto rather than creating a separate cave.
+# The same local tangent/normal basis keeps every new object aligned with the entrance.
+tablet_stone_mat = material("Grotto • ancient blue-grey tablet", (0.22, 0.27, 0.29), 0.96)
+tablet_etch_mat = material("Grotto • dark incised runes", (0.045, 0.065, 0.070), 0.98)
+tablet_pedestal_mat = material("Grotto • worn pedestal stone", (0.13, 0.16, 0.17), 0.95)
+
+# A low plinth and upright slab sit at the end of the newly extended passage.
+tablet_pedestal = cube_obj(
+    "Day 10 • ancient tablet pedestal",
+    cave_position(0.0, 2.93, 0.105),
+    (1.02, 0.34, 0.19),
+    tablet_pedestal_mat,
+    0.055
+)
+tablet_pedestal.rotation_euler.z = math.atan2(cave_ty, cave_tx)
+
+ancient_tablet = cube_obj(
+    "Day 10 • ancient explorer tablet",
+    cave_position(0.0, 3.08, 0.57),
+    (0.78, 0.16, 0.91),
+    tablet_stone_mat,
+    0.045
+)
+ancient_tablet.rotation_euler.z = math.atan2(cave_ty, cave_tx)
+
+# Carved-looking marks sit just proud of the front face so they remain legible in Eevee.
+rune_depth = 2.992
+rune_paths = [
+    [(-0.20, 0.82), (-0.13, 0.70), (-0.22, 0.58), (-0.13, 0.45)],
+    [(0.00, 0.83), (0.08, 0.70), (-0.01, 0.59), (0.08, 0.46)],
+    [(0.20, 0.82), (0.13, 0.70), (0.22, 0.58), (0.13, 0.45)]
+]
+for rune_index, path in enumerate(rune_paths):
+    make_water_curve(
+        "Day 10 • tablet carved rune %02d" % (rune_index + 1),
+        [cave_position(u, rune_depth, z) for u, z in path],
+        0.012,
+        tablet_etch_mat
+    )
+make_water_curve(
+    "Day 10 • tablet lower inscription",
+    [
+        cave_position(-0.22, rune_depth, 0.30),
+        cave_position(0.0, rune_depth, 0.26),
+        cave_position(0.22, rune_depth, 0.30)
+    ],
+    0.010,
+    tablet_etch_mat
+)
+
+# A narrow mineral seam follows the inner left wall of the passage.
+ore_glow_mat = bpy.data.materials.new("Grotto • muted aquamarine ore")
+ore_glow_mat.use_nodes = True
+ore_nodes = ore_glow_mat.node_tree.nodes
+ore_nodes.clear()
+ore_emission = ore_nodes.new("ShaderNodeEmission")
+ore_emission.inputs["Color"].default_value = (0.055, 0.42, 0.52, 1.0)
+ore_emission.inputs["Strength"].default_value = 1.05
+ore_output = ore_nodes.new("ShaderNodeOutputMaterial")
+ore_glow_mat.node_tree.links.new(ore_emission.outputs["Emission"], ore_output.inputs["Surface"])
+
+ore_points = [
+    cave_position(-0.50, 1.35, 0.43),
+    cave_position(-0.48, 1.62, 0.56),
+    cave_position(-0.51, 1.91, 0.49),
+    cave_position(-0.47, 2.22, 0.66),
+    cave_position(-0.50, 2.52, 0.59),
+    cave_position(-0.47, 2.73, 0.70)
+]
+make_water_curve(
+    "Day 10 • glowing aquamarine ore vein",
+    ore_points,
+    0.026,
+    ore_glow_mat
+)
+
+ore_rng = random.Random(1013)
+for ore_index, (along, depth, height, size) in enumerate((
+    (-0.48, 1.48, 0.55, 0.13),
+    (-0.50, 1.88, 0.49, 0.17),
+    (-0.47, 2.28, 0.67, 0.15),
+    (-0.49, 2.63, 0.63, 0.12)
+)):
+    bpy.ops.mesh.primitive_cone_add(
+        vertices=6,
+        radius1=size * 0.48,
+        radius2=0.0,
+        depth=size * 1.9,
+        location=cave_position(along, depth, height)
+    )
+    ore_crystal = bpy.context.object
+    ore_crystal.name = "Day 10 • aquamarine ore shard %02d" % (ore_index + 1)
+    ore_crystal.rotation_euler = (
+        ore_rng.uniform(-0.22, 0.22),
+        ore_rng.uniform(-0.28, 0.28),
+        math.atan2(cave_ty, cave_tx) + ore_rng.uniform(-0.35, 0.35)
+    )
+    ore_crystal.data.materials.append(ore_glow_mat)
+
+# A restrained local light gives the ore and tablet a readable focal point.
+bpy.ops.object.light_add(
+    type="POINT",
+    location=cave_position(-0.30, 2.05, 0.92)
+)
+ore_light = bpy.context.object
+ore_light.name = "Day 10 • soft aquamarine ore light"
+ore_light.data.energy = 9
+ore_light.data.color = (0.16, 0.62, 0.72)
+ore_light.data.shadow_soft_size = 0.55
+
+
 # Lighting, world, camera
 world = bpy.data.worlds.new("Soft blue morning") if not bpy.data.worlds else bpy.data.worlds[0]
 bpy.context.scene.world = world
@@ -1147,7 +1259,7 @@ scene.render.resolution_x=1400; scene.render.resolution_y=1050; scene.render.res
 scene.render.image_settings.file_format='PNG'
 scene.render.film_transparent=False
 scene.view_settings.view_transform='AgX'
-scene.render.filepath='//Screenshots/day09_hidden_grotto.png'
+scene.render.filepath='//Screenshots/day10_grotto_tablet.png'
 
 # Helpful viewport framing
 bpy.context.view_layer.objects.active=island
