@@ -105,18 +105,63 @@ function bridgeFloorAt(x,z){
  return Math.abs(along)<=1.78&&Math.abs(across)<=.59?bridgeDeckY+.07:null;
 }
 
+// Day 08: four hand-stacked cairns continue the map route beyond the creek.
+const cairnSites=[[4.55,-3.35,.92],[5.70,-4.05,.96],[6.85,-4.70,1.00],[7.90,-5.35,1.04]];
+const waystoneMat=new THREE.MeshStandardMaterial({color:0x168b8d,roughness:.35,emissive:0x073b40,emissiveIntensity:.55});
+cairnSites.forEach(([x,z,s],i)=>{
+ const y=terrainHeight(x,z)+.05;
+ const footing=new THREE.Mesh(new THREE.IcosahedronGeometry(.30*s,1),stone);
+ footing.scale.set(1.15,.38,.92);footing.position.set(x,y+.08*s,z);footing.castShadow=true;island.add(footing);
+ for(let j=0;j<3;j++){
+  const rock=new THREE.Mesh(new THREE.IcosahedronGeometry([.20,.155,.115][j]*s,1),stone);
+  rock.scale.set(1.18,.78,1.02);rock.position.set(x+(j%2?-.035:.025),y+.20*s+j*.235*s,z+(j===1?.025:0));
+  rock.rotation.y=i*.7+j*.9;rock.castShadow=true;island.add(rock);
+ }
+ if(i===3){
+  const marker=new THREE.Mesh(new THREE.IcosahedronGeometry(.085*s,1),waystoneMat);
+  marker.position.set(x,y+.79*s,z);marker.castShadow=true;island.add(marker);
+ }
+});
+// Day 09: shallow arched grotto recess, oriented toward the presentation camera.
+const caveX=8.35,caveZ=-6.05,caveY=terrainHeight(caveX,caveZ)+.035;
+const caveGroup=new THREE.Group();caveGroup.position.set(caveX,caveY,caveZ);caveGroup.rotation.y=Math.atan2(.52,-.854);island.add(caveGroup);
+const caveShape=new THREE.Shape();
+caveShape.moveTo(-.66,0);caveShape.lineTo(.66,0);caveShape.lineTo(.66,.74);
+caveShape.absarc(0,.74,.66,0,Math.PI,false);caveShape.lineTo(-.66,0);caveShape.closePath();
+const caveDark=new THREE.Mesh(caveShape,new THREE.MeshStandardMaterial({color:0x101719,roughness:1,side:THREE.DoubleSide}));
+caveDark.position.z=-.04;caveGroup.add(caveDark);
+const archPoints=[];
+for(let i=0;i<=16;i++){const a=Math.PI*i/16;archPoints.push(new THREE.Vector3(.66*Math.cos(a),.74+.66*Math.sin(a),.035));}
+const archCurve=new THREE.CatmullRomCurve3(archPoints);
+const arch=new THREE.Mesh(new THREE.TubeGeometry(archCurve,40,.105,7,false),mat(0x343e3d));
+arch.castShadow=true;caveGroup.add(arch);
+for(const side of [-1,1]){
+ const jamb=new THREE.Mesh(new THREE.IcosahedronGeometry(.24,1),mat(0x343e3d));
+ jamb.scale.set(.85,1.8,1.05);jamb.position.set(side*.67,.35,.02);jamb.castShadow=true;caveGroup.add(jamb);
+ for(let k=0;k<2;k++){
+  const boulder=new THREE.Mesh(new THREE.IcosahedronGeometry(.19-k*.025,1),stone);
+  boulder.position.set(side*(.77+k*.07),.12+k*.22,.08);boulder.castShadow=true;caveGroup.add(boulder);
+ }
+}
+const threshold=new THREE.Mesh(new THREE.BoxGeometry(1.18,.055,1.02),mat(0x35413e));
+threshold.position.set(0,.035,-.52);caveGroup.add(threshold);
+const caveCrystalMat=new THREE.MeshStandardMaterial({color:0x37d3dc,roughness:.2,emissive:0x087b91,emissiveIntensity:1.5});
+const caveCrystal=new THREE.Mesh(new THREE.OctahedronGeometry(.20),caveCrystalMat);
+caveCrystal.position.set(.08,.48,-.83);caveCrystal.rotation.set(.3,.2,.15);caveGroup.add(caveCrystal);
+const caveLight=new THREE.PointLight(0x42cddd,1.1,3);caveLight.position.set(.08,.55,-.78);caveGroup.add(caveLight);
+
 const player=new THREE.Group();scene.add(player);
 const body=new THREE.Mesh(new THREE.CapsuleGeometry(.38,.75,4,8),mat(0xe5a34e));body.position.y=.8;body.castShadow=true;player.add(body);
 const head=new THREE.Mesh(new THREE.SphereGeometry(.28,12,10),mat(0xf0c99d));head.position.y=1.48;player.add(head);
 const pack=new THREE.Mesh(new THREE.BoxGeometry(.42,.48,.2),mat(0x395b72));pack.position.set(0,.85,.36);player.add(pack);
 player.position.set(-4,terrainHeight(-4,-5)+.08,-5);
 const gems=[];for(let i=0;i<8;i++){let a=i*Math.PI*2/8+.2,x=Math.cos(a)*(5.8+(i%2)),z=Math.sin(a)*(5.8+(i%2));let g=new THREE.Mesh(new THREE.OctahedronGeometry(.38),gold);g.position.set(x,2,z);g.userData.baseY=2;island.add(g);gems.push(g)}
-const keys={};let mode='explore',collected=0,hp=100,food=100,woodCount=0,score=0,vy=0,buildings=[];
+const keys={};let mode='explore',collected=0,hp=100,food=100,woodCount=0,score=0,vy=0,buildings=[],grottoDiscovered=false,grottoCrystalFound=false;
 addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='Space')e.preventDefault()});addEventListener('keyup',e=>keys[e.code]=false);
 document.querySelectorAll('[data-key]').forEach(b=>{let k=b.dataset.key;b.addEventListener('pointerdown',e=>{keys[k]=true});['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>keys[k]=false))});
 const status=document.getElementById('status'),help=document.getElementById('help'),toast=document.getElementById('toast');
 function say(s){toast.textContent=s;toast.style.opacity=1;clearTimeout(say.t);say.t=setTimeout(()=>toast.style.opacity=0,1700)}
-function setMode(m){mode=m;document.querySelectorAll('.buttons button').forEach(b=>b.classList.toggle('active',b.id===m));if(m==='explore'){help.innerHTML='WASD / 矢印キー：移動　|　Space：ジャンプ<br>青い宝石を集めよう。小川の杉橋はジャンプで乗り込んで渡れます。';say('探索モード');}
+function setMode(m){mode=m;document.querySelectorAll('.buttons button').forEach(b=>b.classList.toggle('active',b.id===m));if(m==='explore'){help.innerHTML='WASD / 矢印キー：移動　|　Space：ジャンプ<br>青い宝石を集め、石積みの道標をたどって隠し洞窟を探そう。';say('探索モード');}
 if(m==='survival'){help.innerHTML='木に近づいて E：木材を集める<br>体力と食料を管理して生き残ろう。';say('サバイバル開始！');}
 if(m==='rpg'){help.innerHTML='クリック または F：近くの敵を攻撃<br>島に現れるスライムを倒そう。';say('冒険者よ、武器を構えよう！');}
 if(m==='build'){help.innerHTML='クリック：足元の近くに小屋を建築（木材3）<br>サバイバルで木材を集めてから建築しよう。';say('建築モード');}}
@@ -128,10 +173,12 @@ let attackCooldown=0;
 renderer.domElement.addEventListener('pointerdown',()=>{if(mode==='rpg')attack() ;if(mode==='build')build()});
 function attack(){if(attackCooldown>0)return;attackCooldown=.35;let e=enemies.find(q=>q.visible&&q.position.distanceTo(player.position)<3&&q.userData.hp>0);if(e){e.userData.hp--;score+=10;if(e.userData.hp<=0){e.visible=false;score+=30;say('スライムを倒した！ +40 XP')}else say('攻撃！');}else say('敵が近くにいない');}
 function build(){if(woodCount<3){say('木材が足りない！ 木を集めよう');return}woodCount-=3;let b=new THREE.Group();let x=player.position.x,z=player.position.z;let base=new THREE.Mesh(new THREE.BoxGeometry(1.8,1.6,1.8),wood);base.position.y=.8;b.add(base);let r=new THREE.Mesh(new THREE.ConeGeometry(1.45,1,4),roof);r.position.y=2;b.add(r);b.position.set(x,1.4,z);island.add(b);buildings.push(b);say('小さな小屋を建てた！')}
-function updateStatus(){if(mode==='explore')status.textContent='宝石 '+collected+' / 8';if(mode==='survival')status.textContent='体力 '+Math.round(hp)+'　食料 '+Math.round(food)+'　木材 '+woodCount;if(mode==='rpg')status.textContent='HP '+Math.round(hp)+'　XP '+score;if(mode==='build')status.textContent='木材 '+woodCount+'　建築数 '+buildings.length}
+function updateStatus(){if(mode==='explore')status.textContent='宝石 '+collected+' / 8　'+(grottoDiscovered?'| 洞窟発見':'');if(mode==='survival')status.textContent='体力 '+Math.round(hp)+'　食料 '+Math.round(food)+'　木材 '+woodCount;if(mode==='rpg')status.textContent='HP '+Math.round(hp)+'　XP '+score;if(mode==='build')status.textContent='木材 '+woodCount+'　建築数 '+buildings.length}
 let last=performance.now();function animate(now){requestAnimationFrame(animate);let dt=Math.min((now-last)/1000,.04);last=now;const speed=5*dt;let dx=0,dz=0;if(keys.KeyW||keys.ArrowUp)dz-=1;if(keys.KeyS||keys.ArrowDown)dz+=1;if(keys.KeyA||keys.ArrowLeft)dx-=1;if(keys.KeyD||keys.ArrowRight)dx+=1;let len=Math.hypot(dx,dz)||1;player.position.x+=dx/len*speed;player.position.z+=dz/len*speed;player.position.x=Math.max(-9,Math.min(9,player.position.x));player.position.z=Math.max(-9,Math.min(9,player.position.z));if(dx||dz)player.rotation.y=Math.atan2(dx,dz);
 let floorY=terrainHeight(player.position.x,player.position.z)+.08;const bridgeTop=bridgeFloorAt(player.position.x,player.position.z);if(bridgeTop!==null&&player.position.y>=bridgeTop-.42&&vy<=0)floorY=Math.max(floorY,bridgeTop);if(keys.Space&&player.position.y<=floorY+.02)vy=7;vy-=18*dt;player.position.y+=vy*dt;if(player.position.y<floorY){player.position.y=floorY;vy=0}
-if(mode==='explore'){gems.forEach(g=>{if(g.visible&&g.position.distanceTo(player.position)<1.15){g.visible=false;collected++;say('宝石を見つけた！');}});if(collected===8&&gems.some(g=>g.visible)){}if(collected===8&& !animate.done){animate.done=true;say('全ての宝石を集めた！ 島の探索完了！')}}
+if(mode==='explore'){gems.forEach(g=>{if(g.visible&&g.position.distanceTo(player.position)<1.15){g.visible=false;collected++;say('宝石を見つけた！');}});if(collected===8&&gems.some(g=>g.visible)){}if(collected===8&& !animate.done){animate.done=true;say('全ての宝石を集めた！ 石積みの先も調べよう！')}}
+ if(!grottoDiscovered&&Math.hypot(player.position.x-caveX,player.position.z-caveZ)<2.0){grottoDiscovered=true;say('隠し洞窟を発見！ 青緑の光が見える…');}
+ if(!grottoCrystalFound&&Math.hypot(player.position.x-(caveX-.1),player.position.z-(caveZ+.7))<1.25&&Math.abs(player.position.y-(caveY+.5))<1.6){grottoCrystalFound=true;caveCrystal.visible=false;score+=50;say('洞窟の結晶を発見！ +50 XP');}
 if(mode==='survival'){food=Math.max(0,food-dt*.8);if(food===0)hp=Math.max(0,hp-dt*3);if(keys.KeyE){let t=trunks.find(t=>t.position.distanceTo(player.position)<2.5);if(t&&(!t.userData.last||now-t.userData.last>700)){t.userData.last=now;woodCount++;say('木材 +1')}}if(hp<=0)say('体力が尽きた！')}
 if(mode==='rpg'){enemies.forEach((e,i)=>{e.visible=e.userData.hp>0;if(e.visible){e.position.y=1.7+Math.sin(now*.004+i)*.12;let d=e.position.distanceTo(player.position);if(d<1.3&&Math.random()<dt*.35)hp=Math.max(0,hp-2)}});if(keys.KeyF)attack();attackCooldown=Math.max(0,attackCooldown-dt)}
 gems.forEach((g,i)=>{if(g.visible){g.rotation.y+=dt*1.4;g.position.y=2+Math.sin(now*.002+i)*.18}});
