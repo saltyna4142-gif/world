@@ -3,7 +3,7 @@ import math
 import random
 from mathutils import Vector, noise
 
-# Infinite 3D World — Day 10
+# Infinite 3D World — Day 11
 # Blender 4.x | Floating island, creek, waterfall, cedar footbridge and riverbank flora
 
 random.seed(14)
@@ -1234,6 +1234,120 @@ ore_light.data.color = (0.16, 0.62, 0.72)
 ore_light.data.shadow_soft_size = 0.55
 
 
+# A compact three-ring seal console in front of the ancient tablet — Day 11
+# The console shares the grotto's tangent/normal frame so it faces the entrance.
+seal_stone_mat = material("Grotto seal • dark carved stone", (0.12, 0.16, 0.17), 0.93)
+seal_bronze_mat = material("Grotto seal • aged bronze", (0.40, 0.25, 0.10), 0.42)
+seal_etch_mat = material("Grotto seal • engraved bronze lines", (0.58, 0.39, 0.17), 0.48)
+
+seal_angle = math.atan2(cave_ty, cave_tx)
+seal_base = cube_obj(
+    "Day 11 • seal console stone plinth",
+    cave_position(0.0, 2.50, 0.18),
+    (0.94, 0.48, 0.32),
+    seal_stone_mat,
+    0.055
+)
+seal_base.rotation_euler.z = seal_angle
+
+# The circular plate sits on the front face of the plinth and faces the grotto entrance.
+seal_center = cave_position(0.0, 2.20, 0.72)
+seal_rotation = (math.radians(90.0), 0.0, seal_angle)
+bpy.ops.mesh.primitive_cylinder_add(
+    vertices=48,
+    radius=0.34,
+    depth=0.12,
+    location=seal_center,
+    rotation=seal_rotation
+)
+seal_disc = bpy.context.object
+seal_disc.name = "Day 11 • circular stone seal plate"
+seal_disc.data.materials.append(seal_stone_mat)
+seal_bevel = seal_disc.modifiers.new("Worn seal plate rim", "BEVEL")
+seal_bevel.width = 0.025
+seal_bevel.segments = 3
+seal_disc.modifiers.new("Seal plate weighted normals", "WEIGHTED_NORMAL")
+
+# A bronze outer ring and three small studs make the mechanism readable as a lock.
+bpy.ops.mesh.primitive_torus_add(
+    major_segments=48,
+    minor_segments=12,
+    location=cave_position(0.0, 2.10, 0.72),
+    major_radius=0.275,
+    minor_radius=0.024,
+    rotation=seal_rotation
+)
+seal_outer_ring = bpy.context.object
+seal_outer_ring.name = "Day 11 • bronze outer seal ring"
+seal_outer_ring.data.materials.append(seal_bronze_mat)
+
+for stud_index in range(3):
+    stud_angle = math.tau * stud_index / 3.0 - math.pi / 2.0
+    stud_along = 0.292 * math.cos(stud_angle)
+    stud_height = 0.72 + 0.292 * math.sin(stud_angle)
+    bpy.ops.mesh.primitive_uv_sphere_add(
+        segments=12,
+        ring_count=8,
+        radius=0.035,
+        location=cave_position(stud_along, 2.075, stud_height)
+    )
+    stud = bpy.context.object
+    stud.name = "Day 11 • bronze seal rivet %02d" % (stud_index + 1)
+    stud.data.materials.append(seal_bronze_mat)
+
+# Three radial engraved strokes point toward the center crystal.
+for spoke_index in range(3):
+    spoke_angle = math.tau * spoke_index / 3.0 + math.pi / 2.0
+    spoke_points = []
+    for radius in (0.13, 0.18, 0.235):
+        spoke_points.append(cave_position(
+            radius * math.cos(spoke_angle),
+            2.075,
+            0.72 + radius * math.sin(spoke_angle)
+        ))
+    make_water_curve(
+        "Day 11 • radial seal engraving %02d" % (spoke_index + 1),
+        spoke_points,
+        0.012,
+        seal_etch_mat
+    )
+
+# A small aquamarine crystal is set into the center of the plate.
+seal_crystal_mat = bpy.data.materials.new("Grotto seal • luminous aquamarine core")
+seal_crystal_mat.use_nodes = True
+seal_crystal_nodes = seal_crystal_mat.node_tree.nodes
+seal_crystal_nodes.clear()
+seal_crystal_emission = seal_crystal_nodes.new("ShaderNodeEmission")
+seal_crystal_emission.inputs["Color"].default_value = (0.08, 0.52, 0.66, 1.0)
+seal_crystal_emission.inputs["Strength"].default_value = 2.2
+seal_crystal_output = seal_crystal_nodes.new("ShaderNodeOutputMaterial")
+seal_crystal_mat.node_tree.links.new(
+    seal_crystal_emission.outputs["Emission"],
+    seal_crystal_output.inputs["Surface"]
+)
+
+bpy.ops.mesh.primitive_ico_sphere_add(
+    subdivisions=2,
+    radius=0.12,
+    location=cave_position(0.0, 2.045, 0.72)
+)
+seal_crystal = bpy.context.object
+seal_crystal.name = "Day 11 • inset aquamarine seal crystal"
+seal_crystal.scale = (0.82, 0.72, 1.18)
+seal_crystal.data.materials.append(seal_crystal_mat)
+
+# A very soft local light lets the crystal read without washing out the tablet.
+bpy.ops.object.light_add(
+    type="POINT",
+    location=cave_position(0.0, 1.92, 1.02)
+)
+seal_light = bpy.context.object
+seal_light.name = "Day 11 • subtle seal crystal light"
+seal_light.data.energy = 7
+seal_light.data.color = (0.16, 0.62, 0.78)
+seal_light.data.shadow_soft_size = 0.48
+
+
 # Lighting, world, camera
 world = bpy.data.worlds.new("Soft blue morning") if not bpy.data.worlds else bpy.data.worlds[0]
 bpy.context.scene.world = world
@@ -1259,7 +1373,7 @@ scene.render.resolution_x=1400; scene.render.resolution_y=1050; scene.render.res
 scene.render.image_settings.file_format='PNG'
 scene.render.film_transparent=False
 scene.view_settings.view_transform='AgX'
-scene.render.filepath='//Screenshots/day10_grotto_tablet.png'
+scene.render.filepath='//Screenshots/day11_grotto_seal.png'
 
 # Helpful viewport framing
 bpy.context.view_layer.objects.active=island
@@ -1268,4 +1382,4 @@ for area in bpy.context.screen.areas:
     if area.type == 'VIEW_3D':
         area.spaces.active.region_3d.view_distance=30
 
-print("Infinite 3D World — Day 09 hidden grotto entrance added. Save as world.blend and render with F12.")
+print("Infinite 3D World — Day 11 grotto seal mechanism added. Save as world.blend and render with F12.")
