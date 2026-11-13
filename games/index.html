@@ -12,7 +12,7 @@
 <div id="ui">
  <div id="top"><div class="panel"><div id="brand">INFINITE WORLD / 01 EXPLORER</div><div id="status">宝石 0 / 8　|　島を探索しよう</div></div>
  <div class="buttons"><button id="explore" class="active">探索</button><button id="survival">サバイバル</button><button id="rpg">アクションRPG</button><button id="build">建築</button></div></div>
- <div id="toast"></div><div id="help" class="panel">WASD / 矢印キー：移動　|　Space：ジャンプ<br>青い光る宝石を集めよう。小川の杉橋はジャンプで乗り込んで渡れます。スマホは右下のボタンでも移動できます。</div>
+ <div id="toast"></div><div id="help" class="panel">WASD / 矢印キー：移動　|　Space：ジャンプ<br>石積みの道標から洞窟へ進み、奥の石板と青緑色の鉱片を探そう。スマホは右下のボタンでも移動できます。</div>
  <div id="touch"><div style="display:grid;grid-template-columns:repeat(3,52px);gap:5px"><span></span><button data-key="ArrowUp">↑</button><span></span><button data-key="ArrowLeft">←</button><button data-key="ArrowDown">↓</button><button data-key="ArrowRight">→</button></div></div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
@@ -125,11 +125,17 @@ cairnSites.forEach(([x,z,s],i)=>{
 // Day 09: shallow arched grotto recess, oriented toward the presentation camera.
 const caveX=8.35,caveZ=-6.05,caveY=terrainHeight(caveX,caveZ)+.035;
 const caveGroup=new THREE.Group();caveGroup.position.set(caveX,caveY,caveZ);caveGroup.rotation.y=Math.atan2(.52,-.854);island.add(caveGroup);
+function caveSlopeAt(localX,depth){
+ const localZ=-depth,angle=caveGroup.rotation.y;
+ const worldX=caveX+Math.cos(angle)*localX+Math.sin(angle)*localZ;
+ const worldZ=caveZ-Math.sin(angle)*localX+Math.cos(angle)*localZ;
+ return terrainHeight(worldX,worldZ)-terrainHeight(caveX,caveZ);
+}
 const caveShape=new THREE.Shape();
 caveShape.moveTo(-.66,0);caveShape.lineTo(.66,0);caveShape.lineTo(.66,.74);
 caveShape.absarc(0,.74,.66,0,Math.PI,false);caveShape.lineTo(-.66,0);caveShape.closePath();
 const caveDark=new THREE.Mesh(caveShape,new THREE.MeshStandardMaterial({color:0x101719,roughness:1,side:THREE.DoubleSide}));
-caveDark.position.z=-.04;caveGroup.add(caveDark);
+caveDark.position.z=-3.36;caveDark.position.y=caveSlopeAt(0,3.35)+.04;caveGroup.add(caveDark);
 const archPoints=[];
 for(let i=0;i<=16;i++){const a=Math.PI*i/16;archPoints.push(new THREE.Vector3(.66*Math.cos(a),.74+.66*Math.sin(a),.035));}
 const archCurve=new THREE.CatmullRomCurve3(archPoints);
@@ -150,18 +156,88 @@ const caveCrystal=new THREE.Mesh(new THREE.OctahedronGeometry(.20),caveCrystalMa
 caveCrystal.position.set(.08,.48,-.83);caveCrystal.rotation.set(.3,.2,.15);caveGroup.add(caveCrystal);
 const caveLight=new THREE.PointLight(0x42cddd,1.1,3);caveLight.position.set(.08,.55,-.78);caveGroup.add(caveLight);
 
+ // Day 10: a walkable short passage, ancient tablet and collectible aquamarine ore.
+ const caveOutline=[[-.66,0],[.66,0],[.66,.74]];
+ for(let i=1;i<=16;i++){const a=Math.PI*i/16;caveOutline.push([.66*Math.cos(a),.74+.66*Math.sin(a)]);}
+ const caveWallPositions=[],caveWallIndices=[];
+ const caveFrontDepth=.10,caveBackDepth=3.35;
+ caveOutline.forEach(([x,y])=>{
+  caveWallPositions.push(x,y+caveSlopeAt(x,caveFrontDepth),-caveFrontDepth);
+  caveWallPositions.push(x,y+caveSlopeAt(x,caveBackDepth),-caveBackDepth);
+ });
+ for(let i=0;i<caveOutline.length;i++){
+  const next=(i+1)%caveOutline.length,a=i*2,b=next*2,c=next*2+1,d=i*2+1;
+  caveWallIndices.push(a,b,c,a,c,d);
+ }
+ const caveWallGeometry=new THREE.BufferGeometry();
+ caveWallGeometry.setAttribute('position',new THREE.Float32BufferAttribute(caveWallPositions,3));
+ caveWallGeometry.setIndex(caveWallIndices);caveWallGeometry.computeVertexNormals();
+ const caveWall=new THREE.Mesh(caveWallGeometry,new THREE.MeshStandardMaterial({color:0x202b2e,roughness:.98,side:THREE.DoubleSide}));
+ caveWall.receiveShadow=true;caveGroup.add(caveWall);
+ const caveFloorGeometry=new THREE.BufferGeometry();
+ caveFloorGeometry.setAttribute('position',new THREE.Float32BufferAttribute([
+  -.66,caveSlopeAt(-.66,caveFrontDepth)+.045,-caveFrontDepth,
+   .66,caveSlopeAt(.66,caveFrontDepth)+.045,-caveFrontDepth,
+   .66,caveSlopeAt(.66,caveBackDepth)+.045,-caveBackDepth,
+  -.66,caveSlopeAt(-.66,caveBackDepth)+.045,-caveBackDepth
+ ],3));
+ caveFloorGeometry.setIndex([0,1,2,0,2,3]);caveFloorGeometry.computeVertexNormals();
+ const caveFloor=new THREE.Mesh(caveFloorGeometry,new THREE.MeshStandardMaterial({color:0x303a39,roughness:.96,side:THREE.DoubleSide}));
+ caveFloor.receiveShadow=true;caveGroup.add(caveFloor);
+ const tabletStone=new THREE.MeshStandardMaterial({color:0x7b8586,roughness:.94});
+ const tabletBaseMat=new THREE.MeshStandardMaterial({color:0x454f50,roughness:.98});
+ const runeMat=new THREE.MeshStandardMaterial({color:0x263438,roughness:.98});
+ const tabletPedestal=new THREE.Mesh(new THREE.BoxGeometry(1.02,.19,.34),tabletBaseMat);
+ tabletPedestal.position.set(0,caveSlopeAt(0,2.93)+.105,-2.93);tabletPedestal.castShadow=true;caveGroup.add(tabletPedestal);
+ const ancientTablet=new THREE.Mesh(new THREE.BoxGeometry(.78,.91,.16),tabletStone);
+ ancientTablet.position.set(0,caveSlopeAt(0,3.08)+.57,-3.08);ancientTablet.castShadow=true;ancientTablet.receiveShadow=true;caveGroup.add(ancientTablet);
+ const runeDepth=2.992;
+ function addTabletRune(points,radius){
+  const curve=new THREE.CatmullRomCurve3(points.map(([u,y])=>new THREE.Vector3(-u,y+caveSlopeAt(-u,runeDepth),-runeDepth)));
+  const line=new THREE.Mesh(new THREE.TubeGeometry(curve,18,radius,6,false),runeMat);
+  line.castShadow=true;caveGroup.add(line);
+ }
+ addTabletRune([[-.20,.82],[-.13,.70],[-.22,.58],[-.13,.45]],.012);
+ addTabletRune([[0,.83],[.08,.70],[-.01,.59],[.08,.46]],.012);
+ addTabletRune([[.20,.82],[.13,.70],[.22,.58],[.13,.45]],.012);
+ addTabletRune([[-.22,.30],[0,.26],[.22,.30]],.010);
+ const oreMat=new THREE.MeshStandardMaterial({color:0x48b8c2,roughness:.32,emissive:0x0b6570,emissiveIntensity:1.05});
+ const orePath=[
+  [.50,.43,1.35],[.48,.56,1.62],[.51,.49,1.91],
+  [.47,.66,2.22],[.50,.59,2.52],[.47,.70,2.73]
+ ];
+ const oreCurve=new THREE.CatmullRomCurve3(orePath.map(([x,y,d])=>new THREE.Vector3(x,y+caveSlopeAt(x,d),-d)));
+ const oreVein=new THREE.Mesh(new THREE.TubeGeometry(oreCurve,48,.026,7,false),oreMat);
+ oreVein.castShadow=true;caveGroup.add(oreVein);
+ const oreShards=[];
+ const oreSpecs=[
+  [.48,.55,1.48,.13],[.50,.49,1.88,.17],
+  [.47,.67,2.28,.15],[.49,.63,2.63,.12]
+ ];
+ oreSpecs.forEach(([x,y,d,size],i)=>{
+  const shard=new THREE.Mesh(new THREE.ConeGeometry(size*.48,size*1.9,6),oreMat);
+  shard.position.set(x,y+caveSlopeAt(x,d),-d);
+  shard.rotation.set(.12*(i%2?1:-1),.24*i,.18*(i%2?1:-1));
+  shard.castShadow=true;caveGroup.add(shard);oreShards.push(shard);
+ });
+ const oreLight=new THREE.PointLight(0x38b8c5,.72,3.6);
+ oreLight.position.set(.30,.92+caveSlopeAt(.30,2.05),-2.05);caveGroup.add(oreLight);
+ caveGroup.updateMatrixWorld(true);
+ const tabletWorldPosition=caveGroup.localToWorld(new THREE.Vector3(0,caveSlopeAt(0,3.08)+.57,-3.08));
+ const oreWorldPosition=new THREE.Vector3();
+
 const player=new THREE.Group();scene.add(player);
 const body=new THREE.Mesh(new THREE.CapsuleGeometry(.38,.75,4,8),mat(0xe5a34e));body.position.y=.8;body.castShadow=true;player.add(body);
 const head=new THREE.Mesh(new THREE.SphereGeometry(.28,12,10),mat(0xf0c99d));head.position.y=1.48;player.add(head);
 const pack=new THREE.Mesh(new THREE.BoxGeometry(.42,.48,.2),mat(0x395b72));pack.position.set(0,.85,.36);player.add(pack);
 player.position.set(-4,terrainHeight(-4,-5)+.08,-5);
 const gems=[];for(let i=0;i<8;i++){let a=i*Math.PI*2/8+.2,x=Math.cos(a)*(5.8+(i%2)),z=Math.sin(a)*(5.8+(i%2));let g=new THREE.Mesh(new THREE.OctahedronGeometry(.38),gold);g.position.set(x,2,z);g.userData.baseY=2;island.add(g);gems.push(g)}
-const keys={};let mode='explore',collected=0,hp=100,food=100,woodCount=0,score=0,vy=0,buildings=[],grottoDiscovered=false,grottoCrystalFound=false;
+const keys={};let mode='explore',collected=0,hp=100,food=100,woodCount=0,score=0,vy=0,buildings=[],grottoDiscovered=false,grottoCrystalFound=false,tabletFound=false,oreCollected=0;
 addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='Space')e.preventDefault()});addEventListener('keyup',e=>keys[e.code]=false);
 document.querySelectorAll('[data-key]').forEach(b=>{let k=b.dataset.key;b.addEventListener('pointerdown',e=>{keys[k]=true});['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>keys[k]=false))});
 const status=document.getElementById('status'),help=document.getElementById('help'),toast=document.getElementById('toast');
 function say(s){toast.textContent=s;toast.style.opacity=1;clearTimeout(say.t);say.t=setTimeout(()=>toast.style.opacity=0,1700)}
-function setMode(m){mode=m;document.querySelectorAll('.buttons button').forEach(b=>b.classList.toggle('active',b.id===m));if(m==='explore'){help.innerHTML='WASD / 矢印キー：移動　|　Space：ジャンプ<br>青い宝石を集め、石積みの道標をたどって隠し洞窟を探そう。';say('探索モード');}
+function setMode(m){mode=m;document.querySelectorAll('.buttons button').forEach(b=>b.classList.toggle('active',b.id===m));if(m==='explore'){help.innerHTML='WASD / 矢印キー：移動　|　Space：ジャンプ<br>宝石を集め、洞窟の奥の古代石板を見つけ、壁の青緑色の鉱片を採取しよう。';say('探索モード');}
 if(m==='survival'){help.innerHTML='木に近づいて E：木材を集める<br>体力と食料を管理して生き残ろう。';say('サバイバル開始！');}
 if(m==='rpg'){help.innerHTML='クリック または F：近くの敵を攻撃<br>島に現れるスライムを倒そう。';say('冒険者よ、武器を構えよう！');}
 if(m==='build'){help.innerHTML='クリック：足元の近くに小屋を建築（木材3）<br>サバイバルで木材を集めてから建築しよう。';say('建築モード');}}
@@ -173,12 +249,14 @@ let attackCooldown=0;
 renderer.domElement.addEventListener('pointerdown',()=>{if(mode==='rpg')attack() ;if(mode==='build')build()});
 function attack(){if(attackCooldown>0)return;attackCooldown=.35;let e=enemies.find(q=>q.visible&&q.position.distanceTo(player.position)<3&&q.userData.hp>0);if(e){e.userData.hp--;score+=10;if(e.userData.hp<=0){e.visible=false;score+=30;say('スライムを倒した！ +40 XP')}else say('攻撃！');}else say('敵が近くにいない');}
 function build(){if(woodCount<3){say('木材が足りない！ 木を集めよう');return}woodCount-=3;let b=new THREE.Group();let x=player.position.x,z=player.position.z;let base=new THREE.Mesh(new THREE.BoxGeometry(1.8,1.6,1.8),wood);base.position.y=.8;b.add(base);let r=new THREE.Mesh(new THREE.ConeGeometry(1.45,1,4),roof);r.position.y=2;b.add(r);b.position.set(x,1.4,z);island.add(b);buildings.push(b);say('小さな小屋を建てた！')}
-function updateStatus(){if(mode==='explore')status.textContent='宝石 '+collected+' / 8　'+(grottoDiscovered?'| 洞窟発見':'');if(mode==='survival')status.textContent='体力 '+Math.round(hp)+'　食料 '+Math.round(food)+'　木材 '+woodCount;if(mode==='rpg')status.textContent='HP '+Math.round(hp)+'　XP '+score;if(mode==='build')status.textContent='木材 '+woodCount+'　建築数 '+buildings.length}
+function updateStatus(){if(mode==='explore')status.textContent='宝石 '+collected+' / 8　鉱片 '+oreCollected+' / 4'+(grottoDiscovered?' | 洞窟':'')+(tabletFound?' | 石板':'');if(mode==='survival')status.textContent='体力 '+Math.round(hp)+'　食料 '+Math.round(food)+'　木材 '+woodCount;if(mode==='rpg')status.textContent='HP '+Math.round(hp)+'　XP '+score;if(mode==='build')status.textContent='木材 '+woodCount+'　建築数 '+buildings.length}
 let last=performance.now();function animate(now){requestAnimationFrame(animate);let dt=Math.min((now-last)/1000,.04);last=now;const speed=5*dt;let dx=0,dz=0;if(keys.KeyW||keys.ArrowUp)dz-=1;if(keys.KeyS||keys.ArrowDown)dz+=1;if(keys.KeyA||keys.ArrowLeft)dx-=1;if(keys.KeyD||keys.ArrowRight)dx+=1;let len=Math.hypot(dx,dz)||1;player.position.x+=dx/len*speed;player.position.z+=dz/len*speed;player.position.x=Math.max(-9,Math.min(9,player.position.x));player.position.z=Math.max(-9,Math.min(9,player.position.z));if(dx||dz)player.rotation.y=Math.atan2(dx,dz);
 let floorY=terrainHeight(player.position.x,player.position.z)+.08;const bridgeTop=bridgeFloorAt(player.position.x,player.position.z);if(bridgeTop!==null&&player.position.y>=bridgeTop-.42&&vy<=0)floorY=Math.max(floorY,bridgeTop);if(keys.Space&&player.position.y<=floorY+.02)vy=7;vy-=18*dt;player.position.y+=vy*dt;if(player.position.y<floorY){player.position.y=floorY;vy=0}
 if(mode==='explore'){gems.forEach(g=>{if(g.visible&&g.position.distanceTo(player.position)<1.15){g.visible=false;collected++;say('宝石を見つけた！');}});if(collected===8&&gems.some(g=>g.visible)){}if(collected===8&& !animate.done){animate.done=true;say('全ての宝石を集めた！ 石積みの先も調べよう！')}}
  if(!grottoDiscovered&&Math.hypot(player.position.x-caveX,player.position.z-caveZ)<2.0){grottoDiscovered=true;say('隠し洞窟を発見！ 青緑の光が見える…');}
  if(!grottoCrystalFound&&Math.hypot(player.position.x-(caveX-.1),player.position.z-(caveZ+.7))<1.25&&Math.abs(player.position.y-(caveY+.5))<1.6){grottoCrystalFound=true;caveCrystal.visible=false;score+=50;say('洞窟の結晶を発見！ +50 XP');}
+ if(mode==='explore'&&!tabletFound&&player.position.distanceTo(tabletWorldPosition)<1.55){tabletFound=true;score+=25;say('古代の石板を発見！刻印に手掛かりがある… +25 XP');}
+ if(mode==='explore'){oreShards.forEach(shard=>{if(shard.visible){shard.getWorldPosition(oreWorldPosition);if(oreWorldPosition.distanceTo(player.position)<.95){shard.visible=false;oreCollected++;score+=15;say('青緑色の鉱片を採取！ +15 XP');}}});}
 if(mode==='survival'){food=Math.max(0,food-dt*.8);if(food===0)hp=Math.max(0,hp-dt*3);if(keys.KeyE){let t=trunks.find(t=>t.position.distanceTo(player.position)<2.5);if(t&&(!t.userData.last||now-t.userData.last>700)){t.userData.last=now;woodCount++;say('木材 +1')}}if(hp<=0)say('体力が尽きた！')}
 if(mode==='rpg'){enemies.forEach((e,i)=>{e.visible=e.userData.hp>0;if(e.visible){e.position.y=1.7+Math.sin(now*.004+i)*.12;let d=e.position.distanceTo(player.position);if(d<1.3&&Math.random()<dt*.35)hp=Math.max(0,hp-2)}});if(keys.KeyF)attack();attackCooldown=Math.max(0,attackCooldown-dt)}
 gems.forEach((g,i)=>{if(g.visible){g.rotation.y+=dt*1.4;g.position.y=2+Math.sin(now*.002+i)*.18}});
