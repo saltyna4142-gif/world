@@ -262,6 +262,28 @@ const caveLight=new THREE.PointLight(0x42cddd,1.1,3);caveLight.position.set(.08,
  const sealLight=new THREE.PointLight(0x31b8ce,.48,2.6);
  sealLight.position.set(0,1.02+caveSlopeAt(0,1.92),-1.92);caveGroup.add(sealLight);
 
+ // Day 12: three keyed rune stones sit between the seal's core and its radial spokes.
+ const runeStoneMat=new THREE.MeshStandardMaterial({color:0x2e3a3d,roughness:.88});
+ const runeInlayMat=new THREE.MeshStandardMaterial({color:0x168b9d,roughness:.32,emissive:0x0b6878,emissiveIntensity:1.15});
+ const runeSymbolPaths=[
+  [[0,-.020],[0,.014],[-.014,.002],[0,.014],[.014,.002]],
+  [[-.014,.015],[.010,.004],[-.010,-.004],[.014,-.015]],
+  [[-.015,-.010],[0,.015],[.015,-.010],[0,-.010],[0,-.020]]
+ ];
+ const runeStoneAngles=[Math.PI/6,5*Math.PI/6,3*Math.PI/2];
+ runeStoneAngles.forEach((angle,index)=>{
+  const radius=.205,x=radius*Math.cos(angle),y=.72+radius*Math.sin(angle);
+  const runeStone=new THREE.Mesh(new THREE.CylinderGeometry(.052,.052,.035,6),runeStoneMat);
+  runeStone.position.set(x,y+caveSlopeAt(x,2.025),-2.025);
+  runeStone.rotation.x=Math.PI/2;runeStone.castShadow=true;runeStone.receiveShadow=true;caveGroup.add(runeStone);
+  const glyphPoints=runeSymbolPaths[index].map(([dx,dy])=>new THREE.Vector3(
+   x+dx,y+dy+caveSlopeAt(x+dx,1.995),-1.995
+  ));
+  const glyphCurve=new THREE.CatmullRomCurve3(glyphPoints);
+  const glyph=new THREE.Mesh(new THREE.TubeGeometry(glyphCurve,18,.0045,6,false),runeInlayMat);
+  glyph.castShadow=true;caveGroup.add(glyph);
+ });
+
  caveGroup.updateMatrixWorld(true);
  const tabletWorldPosition=caveGroup.localToWorld(new THREE.Vector3(0,caveSlopeAt(0,3.08)+.57,-3.08));
  const sealWorldPosition=caveGroup.localToWorld(new THREE.Vector3(0,sealCenterY,-2.20));
@@ -283,7 +305,7 @@ if(m==='survival'){help.innerHTML='木に近づいて E：木材を集める<br>
 if(m==='rpg'){help.innerHTML='クリック または F：近くの敵を攻撃<br>島に現れるスライムを倒そう。';say('冒険者よ、武器を構えよう！');}
 if(m==='build'){help.innerHTML='クリック：足元の近くに小屋を建築（木材3）<br>サバイバルで木材を集めてから建築しよう。';say('建築モード');}}
 ['explore','survival','rpg','build'].forEach(id=>document.getElementById(id).onclick=()=>setMode(id));
-function inspectSeal(){if(mode!=='explore'||sealExamined)return;if(player.position.distanceTo(sealWorldPosition)<1.35){sealDiscovered=true;sealExamined=true;say('三本の刻線が中央の結晶へ集まっている。石板の刻印と関係がありそうだ。');}}
+function inspectSeal(){if(mode!=='explore'||sealExamined)return;if(player.position.distanceTo(sealWorldPosition)<1.35){sealDiscovered=true;sealExamined=true;say('三つの刻印石には枝分かれ、川の流れ、山形の記号がある。石板の刻印と照らし合わせてみよう。');}}
 const enemies=[];for(let i=0;i<3;i++){const e=new THREE.Mesh(new THREE.SphereGeometry(.55,12,10),mat(0x8d70d6));e.position.set(4+i*1.5,1.7,-2+i*2);e.castShadow=true;e.userData.hp=3;e.visible=false;island.add(e);enemies.push(e)}
 function nearestTree(){let best=null,d=99;island.children.forEach(o=>{if(o.name==='treeTrunk'){let n=o.position.distanceTo(player.position);if(n<d){d=n;best=o}}});return best}
 const trunks=[];island.children.forEach(o=>{if(o.geometry&&o.geometry.type==='CylinderGeometry'&&o.position.y>1.5&&o.position.y<3)trunks.push(o)});
