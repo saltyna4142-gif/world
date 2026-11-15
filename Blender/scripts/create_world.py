@@ -3,7 +3,7 @@ import math
 import random
 from mathutils import Vector, noise
 
-# Infinite 3D World — Day 11
+# Infinite 3D World — Day 12
 # Blender 4.x | Floating island, creek, waterfall, cedar footbridge and riverbank flora
 
 random.seed(14)
@@ -1348,6 +1348,79 @@ seal_light.data.color = (0.16, 0.62, 0.78)
 seal_light.data.shadow_soft_size = 0.48
 
 
+# Three small keyed rune stones complete the seal's three-part clue — Day 12.
+# They sit between the central crystal and bronze ring, alternating with the three spokes.
+rune_stone_mat = material(
+    "Grotto seal • keyed blue-grey rune stones",
+    (0.18, 0.23, 0.24),
+    0.88
+)
+rune_inlay_mat = bpy.data.materials.new("Grotto seal • softly luminous rune inlays")
+rune_inlay_mat.use_nodes = True
+rune_inlay_nodes = rune_inlay_mat.node_tree.nodes
+rune_inlay_nodes.clear()
+rune_inlay_emission = rune_inlay_nodes.new("ShaderNodeEmission")
+rune_inlay_emission.inputs["Color"].default_value = (0.10, 0.48, 0.60, 1.0)
+rune_inlay_emission.inputs["Strength"].default_value = 1.15
+rune_inlay_output = rune_inlay_nodes.new("ShaderNodeOutputMaterial")
+rune_inlay_mat.node_tree.links.new(
+    rune_inlay_emission.outputs["Emission"],
+    rune_inlay_output.inputs["Surface"]
+)
+
+rune_symbol_paths = (
+    # Forked path: a vertical stem with two short branches.
+    [(0.0, -0.020), (0.0, 0.014), (-0.014, 0.002),
+     (0.0, 0.014), (0.014, 0.002)],
+    # River path: a compact three-turn zigzag.
+    [(-0.014, 0.015), (0.010, 0.004), (-0.010, -0.004),
+     (0.014, -0.015)],
+    # Mountain path: a rising chevron with a short central stem.
+    [(-0.015, -0.010), (0.0, 0.015), (0.015, -0.010),
+     (0.0, -0.010), (0.0, -0.020)]
+)
+
+for rune_index, rune_angle in enumerate((
+    math.pi / 6.0,
+    5.0 * math.pi / 6.0,
+    3.0 * math.pi / 2.0
+)):
+    rune_radius = 0.205
+    rune_along = rune_radius * math.cos(rune_angle)
+    rune_height = 0.72 + rune_radius * math.sin(rune_angle)
+
+    bpy.ops.mesh.primitive_cylinder_add(
+        vertices=6,
+        radius=0.052,
+        depth=0.035,
+        location=cave_position(rune_along, 2.025, rune_height),
+        rotation=seal_rotation
+    )
+    rune_stone = bpy.context.object
+    rune_stone.name = "Day 12 • keyed rune stone %02d" % (rune_index + 1)
+    rune_stone.data.materials.append(rune_stone_mat)
+    rune_bevel = rune_stone.modifiers.new("Softly worn rune-stone edge", "BEVEL")
+    rune_bevel.width = 0.008
+    rune_bevel.segments = 2
+    rune_stone.modifiers.new("Rune-stone weighted normals", "WEIGHTED_NORMAL")
+
+    # Each symbol is drawn on the entrance-facing surface of its own stone.
+    symbol_points = [
+        cave_position(
+            rune_along + offset_x,
+            1.995,
+            rune_height + offset_z
+        )
+        for offset_x, offset_z in rune_symbol_paths[rune_index]
+    ]
+    make_water_curve(
+        "Day 12 • luminous seal glyph %02d" % (rune_index + 1),
+        symbol_points,
+        0.0045,
+        rune_inlay_mat
+    )
+
+
 # Lighting, world, camera
 world = bpy.data.worlds.new("Soft blue morning") if not bpy.data.worlds else bpy.data.worlds[0]
 bpy.context.scene.world = world
@@ -1373,7 +1446,7 @@ scene.render.resolution_x=1400; scene.render.resolution_y=1050; scene.render.res
 scene.render.image_settings.file_format='PNG'
 scene.render.film_transparent=False
 scene.view_settings.view_transform='AgX'
-scene.render.filepath='//Screenshots/day11_grotto_seal.png'
+scene.render.filepath='//Screenshots/day12_three_runes.png'
 
 # Helpful viewport framing
 bpy.context.view_layer.objects.active=island
@@ -1382,4 +1455,4 @@ for area in bpy.context.screen.areas:
     if area.type == 'VIEW_3D':
         area.spaces.active.region_3d.view_distance=30
 
-print("Infinite 3D World — Day 11 grotto seal mechanism added. Save as world.blend and render with F12.")
+print("Infinite 3D World — Day 12 three keyed rune stones added. Save as world.blend and render with F12.")
