@@ -118,3 +118,13 @@ Day 10のスクリプトと制作記録はGitHubに保存済みです。Blender�
 - レンダー出力先を `Screenshots/day11_grotto_seal.png` に更新
 
 Day 11の封印装置生成処理を `Blender/scripts/create_world.py` に追加しました。追加コード単体のPython構文チェックは実施済みです。ただしBlenderでの実行、装置の向き・石板との距離・結晶の見え方の確認、.blend保存、レンダリングは未実施です。したがって `Blender/world.blend` と `Screenshots/day11_grotto_seal.png` はまだ生成されていません。
+
+
+## 今回の追加（Day 12）
+- Day 11の円形封印盤に、三方向の刻線と交互になる小さな刻印石を3個追加
+- それぞれの刻印石に分岐・川の流れ・山形をモチーフにした異なる記号を配置
+- 青灰色の六角形の石、柔らかな青緑色の発光インレイで、既存の中央結晶・青銅リングと色調を統一
+- 既存の cave_position() と seal_rotation を再利用し、封印盤の入口側の面に沿って配置
+- レンダー出力先を `Screenshots/day12_three_runes.png` に更新
+
+Day 12の追加コードはPython構文チェック済みです。ただしBlenderでの実行、刻印石の面方向・既存の刻線や中央結晶との干渉確認、.blend保存、レンダリングは未実施です。したがって `Blender/world.blend` と `Screenshots/day12_three_runes.png` は未生成です。
