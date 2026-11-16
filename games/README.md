@@ -3,7 +3,8 @@
 A browser-playable 3D prototype inspired by the floating-island world generator in `Blender/scripts/create_world.py`.
 
 ## Run
-Open `index.html` in a modern browser with an internet connection. Three.js is loaded from jsDelivr.
+- **Online build:** Open `index.html` in a modern browser with an internet connection. Three.js is loaded from jsDelivr.
+- **Offline build:** Open `infinite-world-offline.html`. It bundles Three.js r160 inline, so the game can run without fetching the library from a CDN.
 
 ## Modes included
 - **Explorer:** roam the island, collect eight glowing crystals, follow four stacked stone cairns, discover the hidden grotto, collect its turquoise crystal, inspect the ancient tablet, gather four aquamarine ore shards, and examine the seal console and its three rune stones with E or a tap.
